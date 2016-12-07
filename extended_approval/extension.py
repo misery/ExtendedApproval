@@ -43,33 +43,37 @@ class ApprovalColumn(Column):
                     ' <span class="issue-icon">!</span> %s'
                     '</span>'
                     % review_request.issue_open_count)
-        elif review_request.shipit_count > 0:
-            total_shipits, latest_shipits = get_shipit_counts(review_request)
 
-            if total_shipits == 0:
-                return ''
-            elif latest_shipits == 0:
-                style = ('style="background-image: '
-                         'linear-gradient(#ffc04d, #ffc04a)"')
-            else:
-                style = ''
+        if review_request.summary.startswith('WIP'):
+            return ('<span class="issue-count" style="background-image: '
+                    'linear-gradient(#FF0000, #DD0000)">WIP</span>')
 
-            return '<span class="shipit-count" %s>' \
-                   ' <div class="rb-icon rb-icon-shipit-checkmark"' \
-                   '      title="%s"></div> %s' \
-                   '</span>' % \
-                (style, self.image_alt, latest_shipits)
-        else:
+        total_shipits, latest_shipits = get_shipit_counts(review_request)
+        if total_shipits == 0:
             return ''
+        elif latest_shipits == 0:
+            style = ('style="background-image: '
+                     'linear-gradient(#ffc04d, #ffc04a)"')
+        else:
+            style = ''
+
+        return '<span class="shipit-count" %s>' \
+               ' <div class="rb-icon rb-icon-shipit-checkmark"' \
+               '      title="%s"></div> %s' \
+               '</span>' % \
+               (style, self.image_alt, latest_shipits)
 
 
 class ConfigurableApprovalHook(ReviewRequestApprovalHook):
     def is_approved(self, review_request, prev_approved, prev_failure):
-        if not prev_approved:
-            return False, prev_failure
-
         if review_request.issue_open_count > 0:
             return False, 'The review request has open issus'
+
+        if review_request.summary.startswith('WIP'):
+            return False, 'The review request is marked as "work in progress"'
+
+        if not prev_approved:
+            return False, prev_failure
 
         total_shipits, latest_shipits = get_shipit_counts(review_request)
         if latest_shipits == 0:
