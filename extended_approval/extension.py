@@ -11,18 +11,22 @@ from reviewboard.datagrids.grids import ReviewRequestDataGrid
 
 def get_shipit_counts(review_request):
     latest_diffset = review_request.get_latest_diffset()
-    latest_shipits = 0
-    total_shipits = 0
+    total_shipits = []
+    latest_shipits = []
 
-    shipit_reviews = review_request.reviews.filter(ship_it=True)
     if latest_diffset:
+        shipit_reviews = review_request.reviews.filter(ship_it=True)
+
         for shipit in shipit_reviews:
             if review_request.submitter != shipit.user:
-                total_shipits += 1
-                if shipit.timestamp > latest_diffset.timestamp:
-                    latest_shipits += 1
+                if shipit.user not in total_shipits:
+                    total_shipits.append(shipit.user)
 
-    return (total_shipits, latest_shipits)
+                if shipit.timestamp > latest_diffset.timestamp:
+                    if shipit.user not in latest_shipits:
+                        latest_shipits.append(shipit.user)
+
+    return (len(total_shipits), len(latest_shipits))
 
 
 class ApprovalColumn(Column):
