@@ -1,0 +1,1 @@
+reviewboard>=2.5

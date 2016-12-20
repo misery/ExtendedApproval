@@ -11,7 +11,7 @@ setup(
     version=VERSION,
     description="Extension ExtendedApproval",
     author="Andre Klitzing",
-    packages=["extended_approval"],
+    packages=[str('extended_approval')],
     entry_points={
         'reviewboard.extensions':
             '%s = extended_approval.extension:ExtendedApproval' % PACKAGE,
