@@ -4,7 +4,7 @@ from reviewboard.extensions.packaging import setup
 
 
 PACKAGE = "ExtendedApproval"
-VERSION = "0.2"
+VERSION = "0.3"
 
 setup(
     name=PACKAGE,
