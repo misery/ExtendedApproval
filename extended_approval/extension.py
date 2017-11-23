@@ -70,26 +70,24 @@ class ApprovalColumn(Column):
     def __init__(self, extension, *args, **kwargs):
         """Initialize the column."""
         super(ApprovalColumn, self).__init__(
+            image_class='rb-icon rb-icon-warning',
+            image_alt=_('Approved'),
             detailed_label=_('Approved'),
             db_field='shipit_count',
-            sortable=True,
+            sortable=False,
             shrink=True,
             *args, **kwargs)
 
         self.settings = extension.settings
 
-    def _render(self, count_details):
-        return format_html(
-            '<div>{count_html}</div>',
-            count_html=mark_safe(''.join(
+    def _render(self, details):
+        return mark_safe(''.join(
                 format_html(
-                    '<span class="shipit-count">'
-                    '<span class="rb-icon rb-icon-{icon_name}"'
-                    '      title="{title}" style="{style}"></span>'
-                    '</span>',
-                    **dict({'style': '',}, **count_detail))
-                for count_detail in count_details
-            )))
+                    '<div class="rb-icon rb-icon-{icon_name}"'
+                    '      title="{title}" style="{style}"></div>',
+                    **dict({'style': '',}, **detail))
+                for detail in details
+            ))
 
     def render_data(self, state, review_request):
         if review_request.summary.startswith('WIP'):
@@ -174,6 +172,6 @@ class ExtendedApproval(Extension):
     def initialize(self):
         ConfigurableApprovalHook(self)
 
-        columns = [ApprovalColumn(self, id='approved', label='Approved')]
+        columns = [ApprovalColumn(self, id='approved')]
         DataGridColumnsHook(self, ReviewRequestDataGrid, columns)
         DashboardColumnsHook(self, columns)
