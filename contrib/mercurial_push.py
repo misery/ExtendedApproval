@@ -518,6 +518,9 @@ class MercurialHook(object):
             else:
                 self.submitter = kallithea['username']
                 self.repo_name = kallithea['repository']
+        elif 'REPO_NAME' in os.environ and 'REMOTE_USER' in os.environ:
+                self.submitter = os.environ['REMOTE_USER']
+                self.repo_name = os.environ['REPO_NAME']
         else:
             self.submitter = getpass.getuser()
             self.repo_name = repo
