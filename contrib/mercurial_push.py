@@ -422,7 +422,8 @@ class MercurialReviewRequest(object):
         """
         cmd = ['hg', 'log', '-r', self.changeset,
                '--template',
-               '{author} ({date|isodate}) [{node|short}]:\n{desc}\n\n']
+               '{author} ({date|isodate}) [{node|short}] [{branch}]:'
+               '\n{desc}\n\n']
         return execute(cmd)
 
     def _generate_commit_id(self):
