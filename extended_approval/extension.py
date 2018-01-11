@@ -20,25 +20,34 @@ CONFIG_GRACE_PERIOD_DIFFSET = 'grace_period_diffset'
 CONFIG_GRACE_PERIOD_SHIPIT = 'grace_period_shipit'
 
 
-def get_ship_its(review_request):
-    latest_diffset = review_request.get_latest_diffset()
-    total_shipits = []
-    latest_shipits = []
+class ReqReviews(object):
+    def __init__(self, review_request):
+        self.review_request = review_request
+        self.diffset = review_request.get_latest_diffset()
+        self.total = []
+        self.latest = []
 
-    if latest_diffset:
-        shipit_reviews = review_request.reviews.filter(public=True,
-                                                       ship_it=True)
+        if self.diffset:
+            shipit_reviews = review_request.reviews.filter(public=True,
+                                                           ship_it=True)
 
-        for shipit in shipit_reviews:
-            if review_request.submitter != shipit.user:
-                if shipit.user not in (u.user for u in total_shipits):
-                    total_shipits.append(shipit)
+            for shipit in shipit_reviews:
+                if review_request.submitter != shipit.user:
+                    if shipit.user not in (u.user for u in self.total):
+                        self.total.append(shipit)
 
-                if shipit.timestamp > latest_diffset.timestamp:
-                    if shipit.user not in (u.user for u in latest_shipits):
-                        latest_shipits.append(shipit)
+                    if shipit.timestamp > self.diffset.timestamp:
+                        if shipit.user not in (u.user for u in self.latest):
+                            self.latest.append(shipit)
 
-    return (total_shipits, latest_shipits, latest_diffset)
+    def getDiffset(self):
+        return self.diffset
+
+    def getTotal(self):
+        return self.total
+
+    def getLatest(self):
+        return self.latest
 
 
 def calc_epoch(settings, config, obj):
@@ -97,11 +106,11 @@ class ApprovalColumn(Column):
                       'title': _('WIP'),
                }])
 
-        total_shipits, latest_shipits, diffset = get_ship_its(review_request)
-        if len(total_shipits) > 0:
-            if len(latest_shipits) > 0:
-                period = check_grace_period(self.settings, diffset,
-                                            latest_shipits[0])
+        r = ReqReviews(review_request)
+        if len(r.getTotal()) > 0:
+            if len(r.getLatest()) > 0:
+                period = check_grace_period(self.settings, r.getDiffset(),
+                                            r.getLatest()[0])
 
                 if period is not None:
                     return self._render([{
@@ -152,12 +161,13 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
         if not prev_approved:
             return False, prev_failure
 
-        total_shipits, latest_shipits, diffset = get_ship_its(review_request)
-        if len(latest_shipits) == 0:
+        r = ReqReviews(review_request)
+        if len(r.getLatest()) == 0:
             return False, 'The latest diff has not been marked' \
                           ' "Ship It!" by someone else'
 
-        period = check_grace_period(self.settings, diffset, latest_shipits[0])
+        period = check_grace_period(self.settings, r.getDiffset(),
+                                    r.getLatest()[0])
         if period is not None:
             return False, period
 
