@@ -26,7 +26,8 @@ def get_ship_its(review_request):
     latest_shipits = []
 
     if latest_diffset:
-        shipit_reviews = review_request.reviews.filter(ship_it=True)
+        shipit_reviews = review_request.reviews.filter(public=True,
+                                                       ship_it=True)
 
         for shipit in shipit_reviews:
             if review_request.submitter != shipit.user:
