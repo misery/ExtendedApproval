@@ -7,7 +7,7 @@ from djblets.datagrid.grids import Column
 
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext_lazy as _, ugettext
+from django.utils.translation import ugettext_lazy as _
 
 from reviewboard.extensions.base import Extension
 from reviewboard.extensions.hooks import (DataGridColumnsHook,
@@ -85,7 +85,7 @@ class ApprovalColumn(Column):
                 format_html(
                     '<div class="rb-icon rb-icon-{icon_name}"'
                     '      title="{title}" style="{style}"></div>',
-                    **dict({'style': '',}, **detail))
+                    **dict({'style': '', }, **detail))
                 for detail in details
             ))
 
@@ -99,23 +99,29 @@ class ApprovalColumn(Column):
         total_shipits, latest_shipits, diffset = get_ship_its(review_request)
         if len(total_shipits) > 0:
             if len(latest_shipits) > 0:
-                period = check_grace_period(self.settings, diffset, latest_shipits[0])
+                period = check_grace_period(self.settings, diffset,
+                                            latest_shipits[0])
+
                 if period is not None:
                     return self._render([{
                               'icon_name': 'admin-disabled',
                               'title': period,
                        }])
+
                 elif review_request.approved:
                     return self._render([{
                               'icon_name': 'admin-enabled',
                               'title': _('Approved'),
                        }])
-                elif review_request.issue_open_count > 0 or review_request.issue_verifying_count > 0:
+
+                elif (review_request.issue_open_count > 0 or
+                      review_request.issue_verifying_count > 0):
                     return self._render([{
                               'icon_name': 'admin-enabled',
                               'title': _('Approved but has issues'),
                               'style': 'filter: sepia(1)'
                        }])
+
             else:
                 return self._render([{
                           'icon_name': 'issue-verifying',
@@ -135,7 +141,8 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
         self.settings = extension.settings
 
     def is_approved(self, review_request, prev_approved, prev_failure):
-        if review_request.issue_open_count > 0 or review_request.issue_verifying_count > 0:
+        if (review_request.issue_open_count > 0 or
+           review_request.issue_verifying_count > 0):
             return False, 'The review request has open issues'
 
         if review_request.summary.startswith('WIP'):
@@ -146,7 +153,8 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
 
         total_shipits, latest_shipits, diffset = get_ship_its(review_request)
         if len(latest_shipits) == 0:
-            return False, 'The latest diff has not been marked "Ship It!" by someone else'
+            return False, 'The latest diff has not been marked' \
+                          ' "Ship It!" by someone else'
 
         period = check_grace_period(self.settings, diffset, latest_shipits[0])
         if period is not None:
