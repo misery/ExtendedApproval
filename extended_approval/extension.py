@@ -29,9 +29,17 @@ class ReqReviews(object):
         self.total = []
         self.latest = []
         self.self = []
+        self.revoked = []
 
         if self.diffset:
             shipit_reviews = r.reviews.filter(public=True, ship_it=True)
+            revoked_shipit_reviews = r.reviews.filter(public=True,
+                                                      ship_it=False)
+            for shipit in revoked_shipit_reviews:
+                if r.submitter != shipit.user:
+                    e = shipit.extra_data
+                    if 'revoked_ship_it' in e and e['revoked_ship_it']:
+                        self.revoked.append(shipit)
 
             for shipit in shipit_reviews:
                 if r.submitter == shipit.user:
@@ -47,6 +55,9 @@ class ReqReviews(object):
 
     def getSelf(self):
         return self.self
+
+    def getRevoked(self):
+        return self.revoked
 
     def getTotal(self):
         return self.total
@@ -125,7 +136,7 @@ class ApprovalColumn(Column):
                }])
 
         r = ReqReviews(review_request)
-        if len(r.getTotal()) > 0:
+        if len(r.getTotal()) > 0 or len(r.getRevoked()) > 0:
             if len(r.getLatest()) > 0:
                 period = check_grace_period(self.settings, r.getDiffset(),
                                             r.getLatest()[0])
