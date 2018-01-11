@@ -33,12 +33,10 @@ class ReqReviews(object):
 
             for shipit in shipit_reviews:
                 if review_request.submitter != shipit.user:
-                    if shipit.user not in (u.user for u in self.total):
-                        self.total.append(shipit)
+                    self.total.append(shipit)
 
                     if shipit.timestamp > self.diffset.timestamp:
-                        if shipit.user not in (u.user for u in self.latest):
-                            self.latest.append(shipit)
+                        self.latest.append(shipit)
 
     def getDiffset(self):
         return self.diffset
@@ -46,8 +44,21 @@ class ReqReviews(object):
     def getTotal(self):
         return self.total
 
+    def getTotalDistinct(self):
+        return self._distinct(self.total)
+
     def getLatest(self):
         return self.latest
+
+    def getLatestDistinct(self):
+        return self._distinct(self.latest)
+
+    def _distinct(self, sourceList):
+        distinct = []
+        for r in sourceList:
+            if r.user not in (u.user for u in distinct):
+                distinct.append(r)
+        return distinct
 
 
 def calc_epoch(settings, config, obj):
