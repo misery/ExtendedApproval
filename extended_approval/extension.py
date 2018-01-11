@@ -26,13 +26,16 @@ class ReqReviews(object):
         self.diffset = review_request.get_latest_diffset()
         self.total = []
         self.latest = []
+        self.self = []
 
         if self.diffset:
             shipit_reviews = review_request.reviews.filter(public=True,
                                                            ship_it=True)
 
             for shipit in shipit_reviews:
-                if review_request.submitter != shipit.user:
+                if review_request.submitter == shipit.user:
+                    self.self.append(shipit)
+                else:
                     self.total.append(shipit)
 
                     if shipit.timestamp > self.diffset.timestamp:
@@ -40,6 +43,9 @@ class ReqReviews(object):
 
     def getDiffset(self):
         return self.diffset
+
+    def getSelf(self):
+        return self.self
 
     def getTotal(self):
         return self.total
