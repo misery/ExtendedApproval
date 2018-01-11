@@ -12,12 +12,15 @@ from django.utils.translation import ugettext_lazy as _
 from reviewboard.extensions.base import Extension
 from reviewboard.extensions.hooks import (DataGridColumnsHook,
                                           DashboardColumnsHook,
-                                          ReviewRequestApprovalHook)
+                                          ReviewRequestApprovalHook,
+                                          SignalHook)
 from reviewboard.datagrids.grids import ReviewRequestDataGrid
+from reviewboard.reviews.signals import review_request_published
 
 
 CONFIG_GRACE_PERIOD_DIFFSET = 'grace_period_diffset'
 CONFIG_GRACE_PERIOD_SHIPIT = 'grace_period_shipit'
+CONFIG_ENABLE_REVOKE_SHIPITS = 'enable_revoke_shipits'
 
 
 class ReqReviews(object):
@@ -203,6 +206,7 @@ class ExtendedApproval(Extension):
     default_settings = {
         CONFIG_GRACE_PERIOD_DIFFSET: 60,
         CONFIG_GRACE_PERIOD_SHIPIT: 15,
+        CONFIG_ENABLE_REVOKE_SHIPITS: False,
     }
 
     def initialize(self):
@@ -211,3 +215,18 @@ class ExtendedApproval(Extension):
         columns = [ApprovalColumn(self, id='approved')]
         DataGridColumnsHook(self, ReviewRequestDataGrid, columns)
         DashboardColumnsHook(self, columns)
+        SignalHook(self, review_request_published, self.on_published)
+
+    def _revoke_shipits(self, reviews, request):
+        for r in reviews:
+            r.revoke_ship_it(request.owner)
+
+    def on_published(self, review_request=None, **kwargs):
+        if self.settings.get(CONFIG_ENABLE_REVOKE_SHIPITS):
+            if review_request.shipit_count > 0:
+                r = ReqReviews(review_request)
+
+                self._revoke_shipits(r.getSelf(), review_request)
+
+                if len(r.getLatest()) == 0:
+                    self._revoke_shipits(r.getTotal(), review_request)
