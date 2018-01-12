@@ -52,12 +52,14 @@ class ReqReviews(object):
     def getRevoked(self):
         if self.revoked is None:
             self.revoked = []
-            reviews = self.request.reviews.filter(public=True, ship_it=False)
-            for shipit in reviews:
-                if self.request.submitter != shipit.user:
-                    e = shipit.extra_data
-                    if 'revoked_ship_it' in e and e['revoked_ship_it']:
-                        self.revoked.append(shipit)
+            if self.diffset:
+                reviews = self.request.reviews.filter(public=True,
+                                                      ship_it=False)
+                for shipit in reviews:
+                    if self.request.submitter != shipit.user:
+                        e = shipit.extra_data
+                        if 'revoked_ship_it' in e and e['revoked_ship_it']:
+                            self.revoked.append(shipit)
         return self.revoked
 
     def getTotal(self):
