@@ -25,22 +25,15 @@ CONFIG_ENABLE_REVOKE_SHIPITS = 'enable_revoke_shipits'
 
 class ReqReviews(object):
     def __init__(self, r):
+        self.request = r
         self.diffset = r.get_latest_diffset()
         self.total = []
         self.latest = []
         self.self = []
-        self.revoked = []
+        self.revoked = None
 
         if self.diffset:
             shipit_reviews = r.reviews.filter(public=True, ship_it=True)
-            revoked_shipit_reviews = r.reviews.filter(public=True,
-                                                      ship_it=False)
-            for shipit in revoked_shipit_reviews:
-                if r.submitter != shipit.user:
-                    e = shipit.extra_data
-                    if 'revoked_ship_it' in e and e['revoked_ship_it']:
-                        self.revoked.append(shipit)
-
             for shipit in shipit_reviews:
                 if r.submitter == shipit.user:
                     self.self.append(shipit)
@@ -57,6 +50,14 @@ class ReqReviews(object):
         return self.self
 
     def getRevoked(self):
+        if self.revoked is None:
+            self.revoked = []
+            reviews = self.request.reviews.filter(public=True, ship_it=False)
+            for shipit in reviews:
+                if self.request.submitter != shipit.user:
+                    e = shipit.extra_data
+                    if 'revoked_ship_it' in e and e['revoked_ship_it']:
+                        self.revoked.append(shipit)
         return self.revoked
 
     def getTotal(self):
