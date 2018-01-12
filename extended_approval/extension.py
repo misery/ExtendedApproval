@@ -63,20 +63,20 @@ class ReqReviews(object):
     def getTotal(self):
         return self.total
 
-    def getTotalDistinct(self):
-        return self._distinct(self.total)
+    def getTotalUser(self):
+        return self._distinct_user(self.total)
 
     def getLatest(self):
         return self.latest
 
-    def getLatestDistinct(self):
-        return self._distinct(self.latest)
+    def getLatestUser(self):
+        return self._distinct_user(self.latest)
 
-    def _distinct(self, sourceList):
+    def _distinct_user(self, sourceList):
         distinct = []
         for r in sourceList:
-            if r.user not in (u.user for u in distinct):
-                distinct.append(r)
+            if r.user not in distinct:
+                distinct.append(r.user)
         return distinct
 
 
