@@ -15,7 +15,8 @@ from reviewboard.extensions.hooks import (DataGridColumnsHook,
                                           ReviewRequestApprovalHook,
                                           SignalHook)
 from reviewboard.datagrids.grids import ReviewRequestDataGrid
-from reviewboard.reviews.signals import review_request_published
+from reviewboard.reviews.signals import (review_publishing,
+                                         review_request_published)
 
 
 CONFIG_GRACE_PERIOD_DIFFSET = 'grace_period_diffset'
@@ -228,6 +229,7 @@ class ExtendedApproval(Extension):
         DataGridColumnsHook(self, ReviewRequestDataGrid, columns)
         DashboardColumnsHook(self, columns)
         SignalHook(self, review_request_published, self.on_published)
+        SignalHook(self, review_publishing, self.on_review_publishing)
 
     def _revoke_shipits(self, reviews, request):
         for r in reviews:
@@ -242,3 +244,9 @@ class ExtendedApproval(Extension):
 
                 if len(r.getLatest()) == 0:
                     self._revoke_shipits(r.getTotal(), review_request)
+
+    def on_review_publishing(self, user=None, review=None, **kwargs):
+        if review.ship_it and review.user == review.review_request.owner:
+            review.ship_it = False
+            if review.body_top == review.SHIP_IT_TEXT:
+                review.body_top = 'PING! Could someone review and give ShipIt?'
