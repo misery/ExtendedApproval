@@ -3,6 +3,10 @@ from __future__ import unicode_literals
 import pytz
 from datetime import datetime, timedelta
 
+from reviewboard.reviews.actions import get_top_level_actions
+from reviewboard.reviews.default_actions import (ShipItAction,
+                                                 get_default_actions)
+
 from djblets.datagrid.grids import Column
 
 from django.utils.html import format_html
@@ -207,6 +211,14 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
         return True
 
 
+class AdvancedShipItAction(ShipItAction):
+    def get_label(self, context):
+        if context['request'].user == context['review_request'].owner:
+            return _('Ping It!')
+
+        return ShipItAction.label
+
+
 class ExtendedApproval(Extension):
     metadata = {
         'Name': 'Extended Approval',
@@ -230,6 +242,30 @@ class ExtendedApproval(Extension):
         DashboardColumnsHook(self, columns)
         SignalHook(self, review_request_published, self.on_published)
         SignalHook(self, review_publishing, self.on_review_publishing)
+
+        self._replace_action(AdvancedShipItAction)
+
+    def shutdown(self):
+        super(ExtendedApproval, self).shutdown()
+        self._replace_action(ShipItAction)
+
+    def _replace_action(self, action):
+        top_actions = []
+        for x in get_top_level_actions():
+            top_actions.append(x)
+
+        for x in top_actions:
+            x.unregister()
+
+        new_actions = []
+        for x in get_default_actions():
+            if x.action_id == action.action_id:
+                new_actions.append(action())
+            else:
+                new_actions.append(x)
+
+        for x in reversed(new_actions):
+            x.register()
 
     def _revoke_shipits(self, reviews, request):
         for r in reviews:
