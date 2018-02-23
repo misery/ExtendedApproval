@@ -514,11 +514,11 @@ class MercurialHook(object):
 
         if 'KALLITHEA_EXTRAS' in os.environ:
             kallithea = json.loads(os.environ['KALLITHEA_EXTRAS'])
+            self.repo_name = kallithea['repository']
             if 'default' in kallithea['username']:
                 self.log('Anonymous access is not supported')
             else:
                 self.submitter = kallithea['username']
-                self.repo_name = kallithea['repository']
         elif 'REPO_NAME' in os.environ and 'REMOTE_USER' in os.environ:
                 self.submitter = os.environ['REMOTE_USER']
                 self.repo_name = os.environ['REPO_NAME']
@@ -698,7 +698,7 @@ class MercurialHook(object):
             raise HookError('Initial changeset is undefined.')
 
         if self.submitter is None or self.repo_name is None:
-            raise HookError('Cannot detect submitter and repository.')
+            raise HookError('Cannot detect submitter or repository.')
 
         self._set_root()
         self._set_repo_id()
