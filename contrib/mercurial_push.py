@@ -285,10 +285,16 @@ class MercurialReviewRequest(object):
                 self.request.summary != self.summary or not
                 self._diff_up_to_date())
 
-    def close(self):
+    def close(self, hgweb=None):
         """Close the given review request with a message."""
-        msg = 'Automatically closed by a push (hook): %s' % self.changeset
-        self.request.update(status='submitted', close_description=msg)
+        rev = self.changeset
+        if hgweb is not None:
+            rev = '[{0}]({1}/rev/{0})'.format(rev, hgweb)
+
+        msg = 'Automatically closed by a push (hook): %s' % rev
+        self.request.update(status='submitted',
+                            close_description=msg,
+                            close_description_text_type='markdown')
 
     def sync(self):
         """Synchronize review request on review board."""
@@ -511,6 +517,7 @@ class MercurialHook(object):
         self.repo_name = None
         self.repo_id = None
         self.root = None
+        self.hgweb = None
 
         if 'KALLITHEA_EXTRAS' in os.environ:
             kallithea = json.loads(os.environ['KALLITHEA_EXTRAS'])
@@ -531,15 +538,17 @@ class MercurialHook(object):
 
     def _set_repo_id(self):
         """Set ID of repository."""
+        fields = 'path,mirror_path,id'
+
         repos = self.root.get_repositories(name=self.repo_name,
                                            tool='Mercurial',
-                                           only_fields='id',
+                                           only_fields=fields,
                                            only_links='')
 
         if repos.num_items < 1:
             repos = self.root.get_repositories(path=self.repo_name,
                                                tool='Mercurial',
-                                               only_fields='id',
+                                               only_fields=fields,
                                                only_links='')
             if repos.num_items < 1:
                 raise HookError('Could not open Review Board repository:'
@@ -547,7 +556,12 @@ class MercurialHook(object):
                                 'Do you have the permissions to access this '
                                 'repository?' % self.repo_name)
 
-        self.repo_id = repos[0].id
+        r = repos[0]
+        self.repo_id = r.id
+        for path in [r.path, r.mirror_path]:
+            if path.startswith('http'):
+                self.hgweb = path.rstrip('/')
+                break
 
     def _set_root(self):
         """Set API root object."""
@@ -648,7 +662,7 @@ class MercurialHook(object):
         if idx is None:
             for r in revreqs:
                 self.log('Closing review request: %s', r.id())
-                r.close()
+                r.close(self.hgweb)
             return 0
         elif idx > 0:
             self.log('If you want to push the already approved ')
