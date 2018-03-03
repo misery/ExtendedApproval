@@ -14,5 +14,6 @@ class ExtendedApprovalSettingsForm(SettingsForm):
         help_text='Time to "Ship It" review request being approved.')
 
     enable_revoke_shipits = BooleanField(
+        required=False,
         label='Revoke previous ShipIts',
         help_text='Revoke all ShipIts after a new diff was uploaded.')
