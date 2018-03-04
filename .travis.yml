@@ -10,3 +10,4 @@ install:
 
 script:
   - flake8 extended_approval/*.py
+  - flake8 contrib/*.py
