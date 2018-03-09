@@ -325,10 +325,13 @@ class MercurialReviewRequest(object):
         """Update review request draft based on changeset."""
         self.approved = False
         extra_data = None
+        draft = self.request.get_or_create_draft(only_fields='',
+                                                 only_links='update,'
+                                                            'draft_diffs')
 
         if not self._diff_up_to_date():
-            diffs = self.request.get_diffs(only_links='upload_diff',
-                                           only_fields='')
+            diffs = draft.get_draft_diffs(only_links='upload_diff',
+                                          only_fields='')
             d = self.diff_info
             if len(d['parent_diff']) > 0:
                 diffs.upload_diff(d['diff'],
@@ -344,8 +347,6 @@ class MercurialReviewRequest(object):
                 for x in get_ticket_refs(self.description)]
         bugs = ','.join(refs)
 
-        draft = self.request.get_or_create_draft(only_links='update',
-                                                 only_fields='')
         draft.update(summary=self.summary,
                      bugs_closed=bugs,
                      description=self.description,
