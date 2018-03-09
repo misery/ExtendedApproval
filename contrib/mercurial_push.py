@@ -328,7 +328,8 @@ class MercurialReviewRequest(object):
             True if review request is modified, otherwise False.
         """
         return (self.request.branch != self.branch or
-                self.request.summary != self.summary or not
+                self.request.summary != self.summary or
+                self._modified_description() or not
                 self._diff_up_to_date())
 
     def close(self, hgweb=None):
@@ -476,6 +477,18 @@ class MercurialReviewRequest(object):
         cmd = ['hg', 'log', '-r', self.changeset,
                '--template', '{desc|firstline}']
         return execute(cmd).strip()
+
+    def _modified_description(self):
+        """Filter changeset information and check if the
+           description got changed.
+        """
+        regex = ('\([0-9]{4}-[0-9]{2}-[0-9]{2} '
+                 '[0-9]{2}:[0-9]{2} [+-][0-9]{4}\) '
+                 '\[[0-9|a-z]+\]')
+
+        old = self.request.description
+        new = self.description
+        return re.sub(regex, '', old, 1) != re.sub(regex, '', new, 1)
 
     def _generate_description(self):
         """Return a description of a changeset revision.
