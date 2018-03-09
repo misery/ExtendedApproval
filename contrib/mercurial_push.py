@@ -218,7 +218,7 @@ class MercurialDiffer(object):
             hasher = hmac.new(self.key, digestmod=hashlib.sha256)
             hasher.update(str(diffset_id))
             hasher.update(str(self._request_id))
-            for line in self._diff.split(b'\n'):
+            for line in self._diff.splitlines():
                 if (len(line) > 0 and not line.startswith(b'diff') and not
                    line.startswith(b'@@')):
                     hasher.update(line)
@@ -447,7 +447,7 @@ class MercurialReviewRequest(object):
                      'description:\n{desc}\n'
             cmd = ['hg', 'log', '-T', detail, '-r', self.changeset]
             raw_data = execute(cmd,
-                               results_unicode=False).strip().split(b'\n')
+                               results_unicode=False).strip().splitlines()
             content = []
             for data in raw_data:
                 content.append(b'+%s' % data)
@@ -644,7 +644,7 @@ class MercurialHook(object):
         lines = execute(['hg', 'log', '-r', node + ':',
                          '--template', '{node|short}\n'])
 
-        return lines.split('\n')[:-1]
+        return lines.splitlines()
 
     def _check_duplicate(self, request, revreqs):
         """Check if a summary is already used during this push.
