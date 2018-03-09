@@ -252,6 +252,7 @@ class MercurialReviewRequest(object):
 
         r = self._get_request()
         self.request = r
+        self.existing = False if r is None else True
         self.approved = False if r is None else r.approved
         self.failure = None if r is None else r.approval_failure
 
@@ -272,7 +273,7 @@ class MercurialReviewRequest(object):
             Boolean:
             True if review request exists, otherwise False.
         """
-        return self.request is not None
+        return self.existing
 
     def modified(self):
         """Return modified state of review request.
