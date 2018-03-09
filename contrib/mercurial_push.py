@@ -324,6 +324,8 @@ class MercurialReviewRequest(object):
     def _update(self):
         """Update review request draft based on changeset."""
         self.approved = False
+        extra_data = None
+
         if not self._diff_up_to_date():
             diffs = self.request.get_diffs(only_links='upload_diff',
                                            only_fields='')
@@ -337,7 +339,6 @@ class MercurialReviewRequest(object):
                                   base_commit_id=d['base_commit_id'])
 
             extra_data = {'extra_data.diff_hash': d['diff_hash']}
-            self.request.update(**extra_data)
 
         refs = [six.text_type(x)
                 for x in get_ticket_refs(self.description)]
@@ -352,6 +353,9 @@ class MercurialReviewRequest(object):
                      branch=self.branch,
                      commit_id=self.commit_id,
                      public=True)
+
+        if extra_data:
+            self.request.update(**extra_data)
 
     def _create(self):
         """Create a new review request on review board.
