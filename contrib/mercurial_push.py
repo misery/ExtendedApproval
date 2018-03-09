@@ -497,10 +497,8 @@ class MercurialReviewRequest(object):
             unicode:
             The description of changeset.
         """
-        cmd = ['hg', 'log', '-r', self.changeset,
-               '--template',
-               '{author} ({date|isodate}) [{node|short}] [{branch}]:'
-               '\n{desc}\n\n']
+        t = '{author} ({date|isodate}) [{node|short}] [{branch}]:\n{desc}'
+        cmd = ['hg', 'log', '-r', self.changeset, '--template', t]
         return execute(cmd)
 
     def _generate_commit_id(self):
