@@ -87,6 +87,7 @@ import sys
 if __name__ == '__main__':
     os.environ['PYTHONPATH'] = '/opt/hook/lib/python2.7/site-packages'
     os.environ['LC_CTYPE'] = 'en_US.UTF-8'
+    os.environ['HOOK_HMAC_KEY'] = 'add random stuff here'
     sys.exit(subprocess.call(['/opt/hook/mercurial_push.py'], env=os.environ))
 
 
@@ -102,6 +103,7 @@ from __future__ import unicode_literals
 
 import getpass
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -166,31 +168,71 @@ def get_ticket_refs(text, prefixes=None):
 class MercurialDiffer(object):
     """A class to return diffs compatible with server."""
 
-    def __init__(self, root):
+    class DiffContent(object):
+        """A class to hold info about a diff and the diff itself."""
+        def __init__(self, request_id, diffset_id,
+                     diff, base_commit_id, parent_diff=None):
+            envKey = 'HOOK_HMAC_KEY'
+            self.key = os.environ.get(envKey)
+            if self.key is None:
+                raise HookError('You need to define %s' % envKey)
+
+            self._request_id = request_id
+            self._diffset_id = diffset_id
+            self._base_commit_id = base_commit_id
+            self.setDiff(diff)
+
+            if parent_diff is None or len(parent_diff) == 0:
+                self._parent_diff = None
+            else:
+                self._parent_diff = parent_diff
+
+        def getDiff(self):
+            return self._diff
+
+        def setDiff(self, diff):
+            self._parent_diff = None
+            if diff is None or len(diff) == 0:
+                self._diff = None
+            else:
+                self._diff = diff
+
+        def getParentDiff(self):
+            return self._parent_diff
+
+        def getBaseCommitId(self):
+            return self._base_commit_id
+
+        def getHash(self, diffset_id=None):
+            if self._diff is None:
+                raise HookError('Cannot get hash of empty diff')
+
+            if diffset_id is None:
+                if self._diffset_id is None:
+                    raise HookError('Cannot get hash without diffset id')
+                diffset_id = self._diffset_id
+
+            if self._request_id is None:
+                raise HookError('Cannot get hash without request id')
+
+            hasher = hmac.new(self.key, digestmod=hashlib.sha256)
+            hasher.update(str(diffset_id))
+            hasher.update(str(self._request_id))
+            for line in self._diff.split(b'\n'):
+                if (len(line) > 0 and not line.startswith(b'diff') and not
+                   line.startswith(b'@@')):
+                    hasher.update(line)
+
+            return hasher.hexdigest()
+
+    def __init__(self, root, request_id, diffset_id):
         """Initialize object with the given API root."""
         from rbtools.commands import Command
         self.tool = MercurialClient()
         cmd = Command()
         self.tool.capabilities = cmd.get_capabilities(api_root=root)
-
-    def calc_hash(self, diff_info):
-        """Calculate a hash value of given diff information.
-
-        Args:
-            diff_info (map):
-                A map of diff information.
-        """
-        if len(diff_info['diff']) == 0:
-            diff_info['diff_hash'] = None
-            return
-
-        hasher = hashlib.sha256()
-        for line in diff_info['diff'].split(b'\n'):
-            if (len(line) > 0 and not line.startswith(b'diff') and not
-               line.startswith(b'@@')):
-                hasher.update(line)
-
-        diff_info['diff_hash'] = hasher.hexdigest()
+        self._request_id = request_id
+        self._diffset_id = diffset_id
 
     def diff(self, rev1, rev2, base):
         """Return a diff and parent diff of given changeset.
@@ -212,9 +254,12 @@ class MercurialDiffer(object):
         revisions = {'base': rev1,
                      'tip': rev2,
                      'parent_base': base}
-        diff_info = self.tool.diff(revisions=revisions)
-        self.calc_hash(diff_info)
-        return diff_info
+        info = self.tool.diff(revisions=revisions)
+        return MercurialDiffer.DiffContent(self._request_id,
+                                           self._diffset_id,
+                                           info['diff'],
+                                           info['base_commit_id'],
+                                           info['parent_diff'])
 
 
 class MercurialReviewRequest(object):
@@ -317,9 +362,12 @@ class MercurialReviewRequest(object):
         if self.diff_info is None:
             self._generate_diff_info()
 
+        if not self.existing:
+            return False
+
         e = self.request.extra_data
         return ('diff_hash' in e and
-                self.diff_info['diff_hash'] == e['diff_hash'])
+                self.diff_info.getHash() == e['diff_hash'])
 
     def _update(self):
         """Update review request draft based on changeset."""
@@ -333,15 +381,13 @@ class MercurialReviewRequest(object):
             diffs = draft.get_draft_diffs(only_links='upload_diff',
                                           only_fields='')
             d = self.diff_info
-            if len(d['parent_diff']) > 0:
-                diffs.upload_diff(d['diff'],
-                                  parent_diff=d['parent_diff'],
-                                  base_commit_id=d['base_commit_id'])
-            else:
-                diffs.upload_diff(d['diff'],
-                                  base_commit_id=d['base_commit_id'])
+            diffs.upload_diff(diff=d.getDiff(),
+                              parent_diff=d.getParentDiff(),
+                              base_commit_id=d.getBaseCommitId())
 
-            extra_data = {'extra_data.diff_hash': d['diff_hash']}
+            # re-fetch diffset to get id
+            diff = draft.get_draft_diffs(only_links='update', only_fields='id')
+            extra_data = {'extra_data.diff_hash': d.getHash(diff[0].id)}
 
         refs = [six.text_type(x)
                 for x in get_ticket_refs(self.description)]
@@ -379,11 +425,18 @@ class MercurialReviewRequest(object):
         - A commit for new branch: "hg branch" and "hg push --new-branch"
         - A commit to close a branch: "hg commit --close-branch"
         """
-        differ = MercurialDiffer(self.root)
-        diff_info = differ.diff(self.changeset + '^1', self.changeset,
-                                self.base)
+        diffset_id = None
+        if self.existing:
+            latest_diff = self.request.get_latest_diff(only_links='',
+                                                       only_fields='id')
+            diffset_id = None if latest_diff is None else latest_diff.id
 
-        if len(diff_info['diff']) == 0:
+        differ = MercurialDiffer(self.root, self.request.id, diffset_id)
+        self.diff_info = differ.diff(self.changeset + '^1',
+                                     self.changeset,
+                                     self.base)
+
+        if self.diff_info.getDiff() is None:
             detail = 'changeset:   {node}\n' \
                      'branch:      {branch}\n' \
                      'parent:      {p1node}\n' \
@@ -398,11 +451,10 @@ class MercurialReviewRequest(object):
             content = []
             for data in raw_data:
                 content.append(b'+%s' % data)
-            diff_info['diff'] = FAKE_DIFF_TEMPL % (len(raw_data) + 5,
-                                                   b'\n'.join(content))
-            differ.calc_hash(diff_info)
 
-        self.diff_info = diff_info
+            fake_diff = FAKE_DIFF_TEMPL % (len(raw_data) + 5,
+                                           b'\n'.join(content))
+            self.diff_info.setDiff(fake_diff)
 
     def _generate_branch(self):
         """Return the branch name of a changeset revision.
@@ -464,7 +516,7 @@ class MercurialReviewRequest(object):
         """
         fields = ('summary,approved,approval_failure,id,commit_id,'
                   'branch,description,extra_data')
-        links = 'submitter,reviews,update,diffs,draft,self'
+        links = 'submitter,reviews,update,diffs,latest_diff,draft,self'
 
         reqs = self.root.get_review_requests(repository=self.repo,
                                              status='pending',
