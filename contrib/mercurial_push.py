@@ -581,7 +581,7 @@ class MercurialHookCmd(Command):
 class MercurialHook(object):
     """Class to represent a hook for Mercurial repositories."""
 
-    def __init__(self, log, repo):
+    def __init__(self, log):
         self.log = log
         self.submitter = None
         self.repo_name = None
@@ -601,7 +601,7 @@ class MercurialHook(object):
                 self.repo_name = os.environ['REPO_NAME']
         else:
             self.submitter = getpass.getuser()
-            self.repo_name = repo
+            self.repo_name = os.environ['HG_PENDING']
 
         self.log('Push as user "%s" to "%s"...',
                  self.submitter, self.repo_name)
@@ -798,7 +798,7 @@ if __name__ == '__main__':
     logger = logging.getLogger('reviewboardhook')
 
     try:
-        h = MercurialHook(partial(logger.info), os.environ['HG_PENDING'])
+        h = MercurialHook(partial(logger.info))
         sys.exit(h.push_to_reviewboard(os.environ['HG_NODE']))
     except Exception as e:
         if logger.getEffectiveLevel() == logging.DEBUG:
