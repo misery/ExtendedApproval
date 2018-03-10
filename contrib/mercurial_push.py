@@ -485,10 +485,11 @@ class MercurialReviewRequest(object):
         regex = ('\([0-9]{4}-[0-9]{2}-[0-9]{2} '
                  '[0-9]{2}:[0-9]{2} [+-][0-9]{4}\) '
                  '\[[0-9|a-z]+\]')
+        regex = re.compile(regex)
 
         old = self.request.description
         new = self.description
-        return re.sub(regex, '', old, 1) != re.sub(regex, '', new, 1)
+        return regex.sub('', old, 1) != regex.sub('', new, 1)
 
     def _generate_description(self):
         """Return a description of a changeset revision.
