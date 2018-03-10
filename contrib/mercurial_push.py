@@ -387,7 +387,7 @@ class MercurialReviewRequest(object):
                               base_commit_id=d.getBaseCommitId())
 
             # re-fetch diffset to get id
-            diff = draft.get_draft_diffs(only_links='update', only_fields='id')
+            diff = draft.get_draft_diffs(only_links='', only_fields='id')
             extra_data = {'extra_data.diff_hash': d.getHash(diff[0].id)}
 
         refs = [six.text_type(x)
@@ -528,7 +528,7 @@ class MercurialReviewRequest(object):
         """
         fields = ('summary,approved,approval_failure,id,commit_id,'
                   'branch,description,extra_data')
-        links = 'submitter,reviews,update,diffs,latest_diff,draft,self'
+        links = 'submitter,update,latest_diff,draft'
 
         reqs = self.root.get_review_requests(repository=self.repo,
                                              status='pending',
