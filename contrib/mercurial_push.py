@@ -427,7 +427,7 @@ class MercurialReviewRequest(object):
         - A commit to close a branch: "hg commit --close-branch"
         """
         diffset_id = None
-        if self.existing:
+        if 'latest_diff' in self.request.links:
             latest_diff = self.request.get_latest_diff(only_links='',
                                                        only_fields='id')
             diffset_id = None if latest_diff is None else latest_diff.id
