@@ -170,7 +170,7 @@ class MercurialDiffer(object):
 
     class DiffContent(object):
         """A class to hold info about a diff and the diff itself."""
-        def __init__(self, request_id, diffset_id,
+        def __init__(self, request_id,
                      diff, base_commit_id, parent_diff=None):
             envKey = 'HOOK_HMAC_KEY'
             self.key = os.environ.get(envKey)
@@ -178,7 +178,6 @@ class MercurialDiffer(object):
                 raise HookError('You need to define %s' % envKey)
 
             self._request_id = request_id
-            self._diffset_id = diffset_id
             self._base_commit_id = base_commit_id
             self.setDiff(diff)
 
@@ -203,14 +202,12 @@ class MercurialDiffer(object):
         def getBaseCommitId(self):
             return self._base_commit_id
 
-        def getHash(self, diffset_id=None):
+        def getHash(self, diffset_id):
             if self._diff is None:
                 raise HookError('Cannot get hash of empty diff')
 
             if diffset_id is None:
-                if self._diffset_id is None:
-                    raise HookError('Cannot get hash without diffset id')
-                diffset_id = self._diffset_id
+                raise HookError('Cannot get hash without diffset id')
 
             if self._request_id is None:
                 raise HookError('Cannot get hash without request id')
@@ -225,14 +222,13 @@ class MercurialDiffer(object):
 
             return hasher.hexdigest()
 
-    def __init__(self, root, request_id, diffset_id):
+    def __init__(self, root, request_id):
         """Initialize object with the given API root."""
         from rbtools.commands import Command
         self.tool = MercurialClient()
         cmd = Command()
         self.tool.capabilities = cmd.get_capabilities(api_root=root)
         self._request_id = request_id
-        self._diffset_id = diffset_id
 
     def diff(self, rev1, rev2, base):
         """Return a diff and parent diff of given changeset.
@@ -256,7 +252,6 @@ class MercurialDiffer(object):
                      'parent_base': base}
         info = self.tool.diff(revisions=revisions)
         return MercurialDiffer.DiffContent(self._request_id,
-                                           self._diffset_id,
                                            info['diff'],
                                            info['base_commit_id'],
                                            info['parent_diff'])
@@ -300,6 +295,11 @@ class MercurialReviewRequest(object):
         self.existing = False if r is None else True
         self.approved = False if r is None else r.approved
         self.failure = None if r is None else r.approval_failure
+
+        self.diffset_id = None
+        if r is not None and 'latest_diff' in r.links:
+            self.diffset_id = r.get_latest_diff(only_links='',
+                                                only_fields='id').id
 
     def id(self):
         """Return ID of review request.
@@ -363,12 +363,12 @@ class MercurialReviewRequest(object):
         if self.diff_info is None:
             self._generate_diff_info()
 
-        if not self.existing:
+        if not self.existing or self.diffset_id is None:
             return False
 
         e = self.request.extra_data
         return ('diff_hash' in e and
-                self.diff_info.getHash() == e['diff_hash'])
+                self.diff_info.getHash(self.diffset_id) == e['diff_hash'])
 
     def _update(self):
         """Update review request draft based on changeset."""
@@ -426,13 +426,7 @@ class MercurialReviewRequest(object):
         - A commit for new branch: "hg branch" and "hg push --new-branch"
         - A commit to close a branch: "hg commit --close-branch"
         """
-        diffset_id = None
-        if 'latest_diff' in self.request.links:
-            latest_diff = self.request.get_latest_diff(only_links='',
-                                                       only_fields='id')
-            diffset_id = None if latest_diff is None else latest_diff.id
-
-        differ = MercurialDiffer(self.root, self.request.id, diffset_id)
+        differ = MercurialDiffer(self.root, self.request.id)
         self.diff_info = differ.diff(self.changeset + '^1',
                                      self.changeset,
                                      self.base)
