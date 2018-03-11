@@ -767,18 +767,15 @@ class MercurialHook(object):
             self.log('Created review request (%d) for '
                      'changeset: %s', request.id(), request.changeset)
 
-    def push_to_reviewboard(self, node):
+    def push_to_reviewboard(self):
         """Run the hook.
-
-        Args:
-            node (unicode):
-                The hex of the first changeset.
 
         Returns:
             int:
             Return code of execution. 0 on success, otherwise non-zero.
         """
-        if len(node) == 0:
+        node = os.environ.get('HG_NODE')
+        if node is None or len(node) == 0:
             raise HookError('Initial changeset is undefined.')
 
         if self.submitter is None or self.repo_name is None:
@@ -799,7 +796,7 @@ if __name__ == '__main__':
 
     try:
         h = MercurialHook(partial(logger.info))
-        sys.exit(h.push_to_reviewboard(os.environ['HG_NODE']))
+        sys.exit(h.push_to_reviewboard())
     except Exception as e:
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.exception('Backtrace of error: %s' % e)
