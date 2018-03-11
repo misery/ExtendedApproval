@@ -190,6 +190,7 @@ class MercurialDiffer(object):
             return self._diff
 
         def setDiff(self, diff):
+            self._hashes = {}
             self._parent_diff = None
             if diff is None or len(diff) == 0:
                 self._diff = None
@@ -212,6 +213,9 @@ class MercurialDiffer(object):
             if self._request_id is None:
                 raise HookError('Cannot get hash without request id')
 
+            if diffset_id in self._hashes:
+                return self._hashes[diffset_id]
+
             hasher = hmac.new(self.key, digestmod=hashlib.sha256)
             hasher.update(str(diffset_id))
             hasher.update(str(self._request_id))
@@ -220,7 +224,9 @@ class MercurialDiffer(object):
                    line.startswith(b'@@')):
                     hasher.update(line)
 
-            return hasher.hexdigest()
+            h = hasher.hexdigest()
+            self._hashes[diffset_id] = h
+            return h
 
     def __init__(self, root, request_id):
         """Initialize object with the given API root."""
