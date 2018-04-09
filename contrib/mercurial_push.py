@@ -557,7 +557,7 @@ class MercurialReviewRequest(object):
 
         elif count == 1:
             r = reqs[0]
-            if r.links.submitter.title != self.submitter:
+            if r.links.submitter.title.lower() != self.submitter.lower():
                 raise HookError('Owner of review request (%d): %s'
                                 % (r.id, r.links.submitter.title))
             return r
