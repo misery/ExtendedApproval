@@ -406,6 +406,7 @@ class MercurialReviewRequest(object):
                      description_text_type='markdown',
                      branch=self.branch,
                      commit_id=self.commit_id,
+                     publish_as_owner=True,
                      public=True)
 
         if extra_data:
