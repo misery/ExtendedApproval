@@ -484,7 +484,7 @@ class MercurialReviewRequest(object):
            description got changed.
         """
         regex = ('\([0-9]{4}-[0-9]{2}-[0-9]{2} '
-                 '[0-9]{2}:[0-9]{2} [+-][0-9]{4}\) '
+                 '[0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4}\) '
                  '\[[0-9|a-z]+\]')
         regex = re.compile(regex)
 
@@ -499,7 +499,7 @@ class MercurialReviewRequest(object):
             unicode:
             The description of changeset.
         """
-        t = '{author} ({date|isodate}) [{node|short}] [{branch}]:\n{desc}'
+        t = '{author} ({date|isodatesec}) [{node|short}] [{branch}]:\n{desc}'
         cmd = ['hg', 'log', '-r', self.changeset, '--template', t]
         return execute(cmd)
 
