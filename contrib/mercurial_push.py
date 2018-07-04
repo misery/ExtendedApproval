@@ -508,7 +508,7 @@ class MercurialReviewRequest(object):
 
         Returns:
             unicode:
-            A generated commit id  of changeset.
+            A generated commit id of changeset.
         """
         author_date = execute(['hg', 'log', '-r', self.changeset,
                                '--template', '{author} {date}'],
@@ -517,6 +517,12 @@ class MercurialReviewRequest(object):
         hasher = hashlib.md5()
         hasher.update(author_date)
         hasher.update(str(self.repo))
+        s = self.summary
+        if (s.startswith('[maven-release-plugin]') or
+                s.startswith('Added tag ') or
+                s.startswith('Moved tag ') or
+                s.startswith('Removed tag ')):
+            hasher.update(s)
         return hasher.hexdigest()
 
     def _get_request(self):
