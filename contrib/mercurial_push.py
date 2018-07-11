@@ -666,7 +666,7 @@ class MercurialHook(object):
         return lines.splitlines()
 
     def _check_duplicate(self, request, revreqs):
-        """Check if a summary is already used during this push.
+        """Check if a summary or commit_id is already used during this push.
 
         Args:
             request (rbtools.hooks.mercurial.MercurialReviewRequest):
@@ -677,10 +677,10 @@ class MercurialHook(object):
 
         Returns:
             Boolean:
-            True if summary is duplicated, otherwise False.
+            True if summary or commit_id is duplicated, otherwise False.
         """
         return any(
-            r.summary == request.summary
+            r.summary == request.summary or r.commit_id == request.commit_id
             for r in revreqs
         )
 
@@ -709,9 +709,11 @@ class MercurialHook(object):
 
             if self._check_duplicate(request, revreqs):
                 self.log('Ignoring changeset (%s) as it has a '
-                         'duplicated summary: %s',
-                         request.changeset, request.summary)
-                continue
+                         'duplicated commit_id or summary: %s | %s',
+                         request.changeset,
+                         request.commit_id,
+                         request.summary)
+                return 1
 
             self._handle_review_request(request)
             revreqs.append(request)
