@@ -630,8 +630,9 @@ class MercurialHook(object):
             if repos.num_items < 1:
                 raise HookError('Could not open Review Board repository:'
                                 '\n%s\n'
-                                'Do you have the permissions to access this '
-                                'repository?' % self.repo_name)
+                                'Repository is not registered or you do '
+                                'not have permissions to access this '
+                                'repository.' % self.repo_name)
 
         r = repos[0]
         self.repo_id = r.id
