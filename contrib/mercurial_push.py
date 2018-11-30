@@ -483,9 +483,9 @@ class MercurialReviewRequest(object):
         """Filter changeset information and check if the
            description got changed.
         """
-        regex = ('\([0-9]{4}-[0-9]{2}-[0-9]{2} '
-                 '[0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4}\) '
-                 '\[[0-9|a-z]+\]')
+        regex = (r'\([0-9]{4}-[0-9]{2}-[0-9]{2} '
+                 r'[0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4}\) '
+                 r'\[[0-9|a-z]+\]')
         regex = re.compile(regex)
 
         old = self.request.description
