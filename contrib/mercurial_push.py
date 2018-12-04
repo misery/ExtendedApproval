@@ -315,9 +315,9 @@ class MercurialReviewRequest(object):
         """
         return None if self.request is None else self.request.id
 
-    def node(self):
+    def node(self, short=True):
         """Return changeset as hex node."""
-        return self._changeset.node()
+        return self._changeset.node(short)
 
     def branch(self):
         """Return branch of changeset."""
@@ -580,8 +580,9 @@ class MercurialRevision(object):
         self.json = json
         self._summary = None
 
-    def node(self):
-        return self.json['node']
+    def node(self, short=True):
+        n = self.json['node']
+        return n[:12] if short else n
 
     def branch(self):
         return self.json['branch']
