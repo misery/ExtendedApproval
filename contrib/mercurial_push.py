@@ -638,12 +638,12 @@ class MercurialRevision(object):
                 self._info += '\n\n\n'
 
                 files = self.files()
-                self._info += '# Touched %d files by this merge ' \
+                self._info += '# Touched %d file(s) by this merge ' \
                               'changeset\n' % len(files)
                 for entry in self.files():
                     self._info += '+ ' + entry + '\n'
 
-                self._info += '# Merges %d changesets\n' % len(merges)
+                self._info += '# Merges %d changeset(s)\n' % len(merges)
 
                 def add(changes):
                     t = '+ [{node}] {summary}\n'
