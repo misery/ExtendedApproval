@@ -565,6 +565,14 @@ class MercurialHookCmd(Command):
 
 class MercurialRevision(object):
     """Class to represent information of changeset."""
+    @staticmethod
+    def fetch(revset):
+        changes = execute(['hg', 'log', '-r', revset,
+                           '--template', 'json'])
+        result = []
+        for entry in json.loads(changes):
+            result.append(MercurialRevision(entry))
+        return result
 
     def __init__(self, json):
         self.json = json
@@ -650,11 +658,7 @@ class MercurialRevision(object):
                      '(children(ancestor(ancestor({p1}, {p2}),' \
                      '{node}))::' \
                      '{node})'.format(p1=p[0], p2=p[1], node=self.node())
-            data = execute(['hg', 'log', '-r', revset,
-                            '--template', 'json'])
-            self._merges = []
-            for entry in json.loads(data):
-                self._merges.append(MercurialRevision(entry))
+            self._merges = MercurialRevision.fetch(revset)
 
         return self._merges
 
@@ -735,12 +739,7 @@ class MercurialHook(object):
             list of object:
             The list of MercurialRevision.
         """
-        changes = execute(['hg', 'log', '-r', node + ':',
-                           '--template', 'json'])
-        result = []
-        for entry in json.loads(changes):
-            result.append(MercurialRevision(entry))
-        return result
+        return MercurialRevision.fetch(node + ':')
 
     def _check_duplicate(self, req, revreqs):
         """Check if a summary or commit_id is already used during this push.
