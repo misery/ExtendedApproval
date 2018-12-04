@@ -589,6 +589,19 @@ class MercurialHookCmd(Command):
         self.options = parser.parse_args([])
 
 
+class MercurialRevision(object):
+    """Class to represent information of changeset."""
+
+    def __init__(self, json):
+        self.json = json
+
+    def node(self):
+        return self.json['node']
+
+    def branch(self):
+        return self.json['branch']
+
+
 class MercurialHook(object):
     """Class to represent a hook for Mercurial repositories."""
 
@@ -657,18 +670,20 @@ class MercurialHook(object):
                             'API_TOKEN to .reviewboardrc')
 
     def _list_of_incoming(self, node):
-        """Return a list of all changeset hexes after (and including) node.
+        """Return a list of all changesets after (and including) node.
 
         Assumes that all incoming changeset have subsequent revision numbers.
 
         Returns:
-            list of unicode:
-            The list of revision identifiers.
+            list of object:
+            The list of MercurialRevision.
         """
-        lines = execute(['hg', 'log', '-r', node + ':',
-                         '--template', '{node|short}\n'])
-
-        return lines.splitlines()
+        changes = execute(['hg', 'log', '-r', node + ':',
+                           '--template', 'json'])
+        result = []
+        for entry in json.loads(changes):
+            result.append(MercurialRevision(entry))
+        return result
 
     def _check_duplicate(self, request, revreqs):
         """Check if a summary or commit_id is already used during this push.
@@ -708,7 +723,7 @@ class MercurialHook(object):
         for changeset in changesets:
             request = MercurialReviewRequest(self.root,
                                              self.repo_id,
-                                             changeset,
+                                             changeset.node(),
                                              base,
                                              self.submitter)
 
