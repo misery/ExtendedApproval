@@ -290,7 +290,6 @@ class MercurialReviewRequest(object):
         self.submitter = submitter
         self._changeset = changeset
         self.base = base
-        self.summary = self._generate_summary()
         self.description = self._generate_description()
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
@@ -324,6 +323,9 @@ class MercurialReviewRequest(object):
         """Return branch of changeset."""
         return self._changeset.branch()
 
+    def summary(self):
+        return self._changeset.summary()
+
     def exists(self):
         """Return existence of review request.
 
@@ -341,7 +343,7 @@ class MercurialReviewRequest(object):
             True if review request is modified, otherwise False.
         """
         return (self.request.branch != self.branch() or
-                self.request.summary != self.summary or
+                self.request.summary != self.summary() or
                 self._modified_description() or not
                 self._diff_up_to_date())
 
@@ -407,7 +409,7 @@ class MercurialReviewRequest(object):
                 for x in get_ticket_refs(self.description)]
         bugs = ','.join(refs)
 
-        draft.update(summary=self.summary,
+        draft.update(summary=self.summary(),
                      bugs_closed=bugs,
                      description=self.description,
                      description_text_type='markdown',
@@ -465,17 +467,6 @@ class MercurialReviewRequest(object):
                                            b'\n'.join(content))
             self.diff_info.setDiff(fake_diff)
 
-    def _generate_summary(self):
-        """Return a summary of a changeset revision.
-
-        Returns:
-            unicode:
-            The summary line of changeset.
-        """
-        cmd = ['hg', 'log', '-r', self.node(),
-               '--template', '{desc|firstline}']
-        return execute(cmd).strip()
-
     def _modified_description(self):
         """Filter changeset information and check if the
            description got changed.
@@ -514,7 +505,7 @@ class MercurialReviewRequest(object):
         hasher = hashlib.md5()
         hasher.update(author_date)
         hasher.update(str(self.repo))
-        s = self.summary
+        s = self.summary()
         if (s.startswith('[maven-release-plugin]') or
                 s.startswith('Added tag ') or
                 s.startswith('Moved tag ') or
@@ -551,10 +542,10 @@ class MercurialReviewRequest(object):
                                                  from_user=self.submitter)
             found = None
             for r in reqs:
-                if r.summary == self.summary:
+                if r.summary == self.summary():
                     if found is not None:
                         raise HookError('Multiple review requests: %s'
-                                        % self.summary)
+                                        % self.summary())
                     found = r
 
             return found
@@ -587,12 +578,21 @@ class MercurialRevision(object):
 
     def __init__(self, json):
         self.json = json
+        self._summary = None
 
     def node(self):
         return self.json['node']
 
     def branch(self):
         return self.json['branch']
+
+    def desc(self):
+        return self.json['desc']
+
+    def summary(self):
+        if self._summary is None:
+            self._summary = self.desc().splitlines()[0].strip()
+        return self._summary
 
 
 class MercurialHook(object):
@@ -693,7 +693,7 @@ class MercurialHook(object):
             True if summary or commit_id is duplicated, otherwise False.
         """
         return any(
-            r.summary == request.summary or r.commit_id == request.commit_id
+            r.summary() == request.summary() or r.commit_id == request.commit_id
             for r in revreqs
         )
 
@@ -725,7 +725,7 @@ class MercurialHook(object):
                          'duplicated commit_id or summary: %s | %s',
                          request.node(),
                          request.commit_id,
-                         request.summary)
+                         request.summary())
                 return 1
 
             self._handle_review_request(request)
