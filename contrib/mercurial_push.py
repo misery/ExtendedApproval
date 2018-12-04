@@ -117,6 +117,7 @@ from rbtools.hooks.common import HookError
 from rbtools.utils.process import execute
 from rbtools.utils.users import get_authenticated_session
 
+MAX_MERGE_ENTRIES = 1
 
 FAKE_DIFF_TEMPL = b'''diff --git /a /b
 new file mode 100644
@@ -570,6 +571,7 @@ class MercurialRevision(object):
         self._summary = None
         self._date = None
         self._info = None
+        self._merges = None
 
     def node(self, short=True):
         n = self.json['node']
@@ -613,8 +615,47 @@ class MercurialRevision(object):
                                          node=self.node(),
                                          branch=self.branch(),
                                          desc=self.desc())
+            merges = self.merges()
+            if merges:
+                self._info += '\n\n\n\nMerges %s Changesets' \
+                              '\n=====================\n' % len(merges)
+
+                def add(changes):
+                    t = '+ [{node}] {summary}\n'
+                    for rev in changes:
+                        self._info += t.format(node=rev.node(),
+                                               summary=rev.summary())
+
+                if len(merges) > MAX_MERGE_ENTRIES + 1:
+                    add(merges[0:MAX_MERGE_ENTRIES])
+                    self._info += '+ ...\n'
+                    add([merges[-1]])
+                else:
+                    add(merges)
+
+            self._info = self._info.strip()
 
         return self._info
+
+    def merges(self):
+        """Get all changeset of this merge change.
+
+        If this is a merge changeset we can fetch
+        all changesets that will be merged.
+        """
+        p = self.json['parents']
+        if len(p) == 2 and self._merges is None:
+            revset = 'ancestors({p2}) and ' \
+                     '(children(ancestor(ancestor({p1}, {p2}),' \
+                     '{node}))::' \
+                     '{node})'.format(p1=p[0], p2=p[1], node=self.node())
+            data = execute(['hg', 'log', '-r', revset,
+                            '--template', 'json'])
+            self._merges = []
+            for entry in json.loads(data):
+                self._merges.append(MercurialRevision(entry))
+
+        return self._merges
 
 
 class MercurialHook(object):
