@@ -101,6 +101,7 @@ to have better control over the "approved" flag.
 """
 from __future__ import unicode_literals
 
+import datetime as dt
 import getpass
 import hashlib
 import hmac
@@ -498,12 +499,9 @@ class MercurialReviewRequest(object):
             unicode:
             A generated commit id of changeset.
         """
-        author_date = execute(['hg', 'log', '-r', self.node(),
-                               '--template', '{author} {date}'],
-                              results_unicode=False).strip()
-
         hasher = hashlib.md5()
-        hasher.update(author_date)
+        hasher.update(self._changeset.author())
+        hasher.update(self._changeset.date())
         hasher.update(str(self.repo))
         s = self.summary()
         if (s.startswith('[maven-release-plugin]') or
@@ -579,6 +577,7 @@ class MercurialRevision(object):
     def __init__(self, json):
         self.json = json
         self._summary = None
+        self._date = None
 
     def node(self, short=True):
         n = self.json['node']
@@ -586,6 +585,25 @@ class MercurialRevision(object):
 
     def branch(self):
         return self.json['branch']
+
+    def author(self):
+        return self.json['user']
+
+    def date(self):
+        if self._date is None:
+            class Offset(dt.tzinfo):
+                def __init__(self, offset):
+                    self._offset = dt.timedelta(seconds = offset)
+                def utcoffset(self, dt):
+                    return self._offset
+
+            d = self.json['date']
+            offset = d[1] * -1
+            d = dt.datetime.utcfromtimestamp(d[0] + offset)
+            d = d.replace(tzinfo=Offset(offset))
+            self._date = d.isoformat(str(' '))
+
+        return self._date
 
     def desc(self):
         return self.json['desc']
