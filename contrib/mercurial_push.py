@@ -288,7 +288,7 @@ class MercurialReviewRequest(object):
         self.root = root
         self.repo = repo
         self.submitter = submitter
-        self.changeset = changeset
+        self._changeset = changeset
         self.base = base
         self.summary = self._generate_summary()
         self.description = self._generate_description()
@@ -317,6 +317,10 @@ class MercurialReviewRequest(object):
         """
         return None if self.request is None else self.request.id
 
+    def node(self):
+        """Return changeset as hex node."""
+        return self._changeset
+
     def exists(self):
         """Return existence of review request.
 
@@ -340,7 +344,7 @@ class MercurialReviewRequest(object):
 
     def close(self, hgweb=None):
         """Close the given review request with a message."""
-        rev = self.changeset
+        rev = self.node()
         if hgweb is not None:
             rev = '[{0}]({1}/rev/{0})'.format(rev, hgweb)
 
@@ -434,8 +438,8 @@ class MercurialReviewRequest(object):
         - A commit to close a branch: "hg commit --close-branch"
         """
         differ = MercurialDiffer(self.root, self.request.id)
-        self.diff_info = differ.diff(self.changeset + '^1',
-                                     self.changeset,
+        self.diff_info = differ.diff(self.node() + '^1',
+                                     self.node(),
                                      self.base)
 
         if self.diff_info.getDiff() is None:
@@ -447,7 +451,7 @@ class MercurialReviewRequest(object):
                      'date:        {localdate(date, "UTC")|date}\n' \
                      'extra:       {join(extras, "\n             ")}\n' \
                      'description:\n{desc}\n'
-            cmd = ['hg', 'log', '-T', detail, '-r', self.changeset]
+            cmd = ['hg', 'log', '-T', detail, '-r', self.node()]
             raw_data = execute(cmd,
                                results_unicode=False).strip().splitlines()
             content = []
@@ -465,7 +469,7 @@ class MercurialReviewRequest(object):
             unicode:
             The revision identifier.
         """
-        cmd = ['hg', 'id', '--branch', '-r', self.changeset]
+        cmd = ['hg', 'id', '--branch', '-r', self.node()]
         return execute(cmd).strip()
 
     def _generate_summary(self):
@@ -475,7 +479,7 @@ class MercurialReviewRequest(object):
             unicode:
             The summary line of changeset.
         """
-        cmd = ['hg', 'log', '-r', self.changeset,
+        cmd = ['hg', 'log', '-r', self.node(),
                '--template', '{desc|firstline}']
         return execute(cmd).strip()
 
@@ -500,7 +504,7 @@ class MercurialReviewRequest(object):
             The description of changeset.
         """
         t = '{author} ({date|isodatesec}) [{node|short}] [{branch}]:\n{desc}'
-        cmd = ['hg', 'log', '-r', self.changeset, '--template', t]
+        cmd = ['hg', 'log', '-r', self.node(), '--template', t]
         return execute(cmd)
 
     def _generate_commit_id(self):
@@ -510,7 +514,7 @@ class MercurialReviewRequest(object):
             unicode:
             A generated commit id of changeset.
         """
-        author_date = execute(['hg', 'log', '-r', self.changeset,
+        author_date = execute(['hg', 'log', '-r', self.node(),
                                '--template', '{author} {date}'],
                               results_unicode=False).strip()
 
@@ -711,7 +715,7 @@ class MercurialHook(object):
             if self._check_duplicate(request, revreqs):
                 self.log('Ignoring changeset (%s) as it has a '
                          'duplicated commit_id or summary: %s | %s',
-                         request.changeset,
+                         request.node(),
                          request.commit_id,
                          request.summary)
                 return 1
@@ -747,7 +751,7 @@ class MercurialHook(object):
         elif idx > 0:
             self.log('If you want to push the already approved ')
             self.log('changes, you can (probably) execute this:')
-            self.log('hg push -r %s', revreqs[idx - 1].changeset)
+            self.log('hg push -r %s', revreqs[idx - 1].node())
 
         return 1
 
@@ -762,20 +766,20 @@ class MercurialHook(object):
             if request.modified():
                 request.sync()
                 self.log('Updated review request (%d) for '
-                         'changeset: %s', request.id(), request.changeset)
+                         'changeset: %s', request.id(), request.node())
             else:
                 if request.approved:
                     self.log('Found approved review request (%d) for '
                              'changeset: %s', request.id(),
-                             request.changeset)
+                             request.node())
                 else:
                     self.log('Found unchanged review request (%d) for '
                              'changeset: %s | %s', request.id(),
-                             request.changeset, request.failure)
+                             request.node(), request.failure)
         else:
             request.sync()
             self.log('Created review request (%d) for '
-                     'changeset: %s', request.id(), request.changeset)
+                     'changeset: %s', request.id(), request.node())
 
     def push_to_reviewboard(self):
         """Run the hook.
