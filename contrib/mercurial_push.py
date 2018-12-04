@@ -276,8 +276,8 @@ class MercurialReviewRequest(object):
             repo (int):
                 An ID of repository.
 
-            changeset (unicode):
-                A revision identifier of changeset.
+            changeset (object of MercurialRevision):
+                An object of MercurialRevision.
 
             base (unicode):
                 A revision of parent changeset.
@@ -319,7 +319,7 @@ class MercurialReviewRequest(object):
 
     def node(self):
         """Return changeset as hex node."""
-        return self._changeset
+        return self._changeset.node()
 
     def exists(self):
         """Return existence of review request.
@@ -723,7 +723,7 @@ class MercurialHook(object):
         for changeset in changesets:
             request = MercurialReviewRequest(self.root,
                                              self.repo_id,
-                                             changeset.node(),
+                                             changeset,
                                              base,
                                              self.submitter)
 
