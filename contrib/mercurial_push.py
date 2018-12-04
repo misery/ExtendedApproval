@@ -292,7 +292,6 @@ class MercurialReviewRequest(object):
         self.base = base
         self.summary = self._generate_summary()
         self.description = self._generate_description()
-        self.branch = self._generate_branch()
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
 
@@ -321,6 +320,10 @@ class MercurialReviewRequest(object):
         """Return changeset as hex node."""
         return self._changeset.node()
 
+    def branch(self):
+        """Return branch of changeset."""
+        return self._changeset.branch()
+
     def exists(self):
         """Return existence of review request.
 
@@ -337,7 +340,7 @@ class MercurialReviewRequest(object):
             Boolean:
             True if review request is modified, otherwise False.
         """
-        return (self.request.branch != self.branch or
+        return (self.request.branch != self.branch() or
                 self.request.summary != self.summary or
                 self._modified_description() or not
                 self._diff_up_to_date())
@@ -408,7 +411,7 @@ class MercurialReviewRequest(object):
                      bugs_closed=bugs,
                      description=self.description,
                      description_text_type='markdown',
-                     branch=self.branch,
+                     branch=self.branch(),
                      commit_id=self.commit_id,
                      publish_as_owner=True,
                      public=True)
@@ -461,16 +464,6 @@ class MercurialReviewRequest(object):
             fake_diff = FAKE_DIFF_TEMPL % (len(raw_data) + 5,
                                            b'\n'.join(content))
             self.diff_info.setDiff(fake_diff)
-
-    def _generate_branch(self):
-        """Return the branch name of a changeset revision.
-
-        Returns:
-            unicode:
-            The revision identifier.
-        """
-        cmd = ['hg', 'id', '--branch', '-r', self.node()]
-        return execute(cmd).strip()
 
     def _generate_summary(self):
         """Return a summary of a changeset revision.
