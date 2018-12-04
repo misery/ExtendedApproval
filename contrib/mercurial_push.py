@@ -291,7 +291,6 @@ class MercurialReviewRequest(object):
         self.submitter = submitter
         self._changeset = changeset
         self.base = base
-        self.description = self._generate_description()
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
 
@@ -326,6 +325,9 @@ class MercurialReviewRequest(object):
 
     def summary(self):
         return self._changeset.summary()
+
+    def _info(self):
+        return self._changeset.info()
 
     def exists(self):
         """Return existence of review request.
@@ -407,12 +409,12 @@ class MercurialReviewRequest(object):
             extra_data = {'extra_data.diff_hash': d.getHash(diff[0].id)}
 
         refs = [six.text_type(x)
-                for x in get_ticket_refs(self.description)]
+                for x in get_ticket_refs(self._changeset.desc())]
         bugs = ','.join(refs)
 
         draft.update(summary=self.summary(),
                      bugs_closed=bugs,
-                     description=self.description,
+                     description=self._info(),
                      description_text_type='markdown',
                      branch=self.branch(),
                      commit_id=self.commit_id,
@@ -473,24 +475,13 @@ class MercurialReviewRequest(object):
            description got changed.
         """
         regex = (r'\([0-9]{4}-[0-9]{2}-[0-9]{2} '
-                 r'[0-9]{2}:[0-9]{2}:[0-9]{2} [+-][0-9]{4}\) '
+                 r'[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}\) '
                  r'\[[0-9|a-z]+\]')
         regex = re.compile(regex)
 
         old = self.request.description
-        new = self.description
+        new = self._info()
         return regex.sub('', old, 1) != regex.sub('', new, 1)
-
-    def _generate_description(self):
-        """Return a description of a changeset revision.
-
-        Returns:
-            unicode:
-            The description of changeset.
-        """
-        t = '{author} ({date|isodatesec}) [{node|short}] [{branch}]:\n{desc}'
-        cmd = ['hg', 'log', '-r', self.node(), '--template', t]
-        return execute(cmd)
 
     def _generate_commit_id(self):
         """Return a commit id of the changeset.
@@ -578,6 +569,7 @@ class MercurialRevision(object):
         self.json = json
         self._summary = None
         self._date = None
+        self._info = None
 
     def node(self, short=True):
         n = self.json['node']
@@ -612,6 +604,17 @@ class MercurialRevision(object):
         if self._summary is None:
             self._summary = self.desc().splitlines()[0].strip()
         return self._summary
+
+    def info(self):
+        if self._info is None:
+            template = '{author} ({date}) [{node}] [{branch}]:\n{desc}'
+            self._info = template.format(author=self.author(),
+                                         date=self.date(),
+                                         node=self.node(),
+                                         branch=self.branch(),
+                                         desc=self.desc())
+
+        return self._info
 
 
 class MercurialHook(object):
