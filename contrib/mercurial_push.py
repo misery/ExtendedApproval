@@ -117,7 +117,7 @@ from rbtools.hooks.common import HookError
 from rbtools.utils.process import execute
 from rbtools.utils.users import get_authenticated_session
 
-MAX_MERGE_ENTRIES = 1
+MAX_MERGE_ENTRIES = 30
 
 FAKE_DIFF_TEMPL = b'''diff --git /a /b
 new file mode 100644
