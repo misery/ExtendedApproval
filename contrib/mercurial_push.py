@@ -587,7 +587,8 @@ class MercurialRevision(object):
         if self._date is None:
             class Offset(dt.tzinfo):
                 def __init__(self, offset):
-                    self._offset = dt.timedelta(seconds = offset)
+                    self._offset = dt.timedelta(seconds=offset)
+
                 def utcoffset(self, dt):
                     return self._offset
 
@@ -741,11 +742,11 @@ class MercurialHook(object):
             result.append(MercurialRevision(entry))
         return result
 
-    def _check_duplicate(self, request, revreqs):
+    def _check_duplicate(self, req, revreqs):
         """Check if a summary or commit_id is already used during this push.
 
         Args:
-            request (rbtools.hooks.mercurial.MercurialReviewRequest):
+            req (rbtools.hooks.mercurial.MercurialReviewRequest):
                 A review request object.
 
             revreqs (list of rbtools.hooks.mercurial.MercurialReviewRequest):
@@ -756,7 +757,7 @@ class MercurialHook(object):
             True if summary or commit_id is duplicated, otherwise False.
         """
         return any(
-            r.summary() == request.summary() or r.commit_id == request.commit_id
+            r.summary() == req.summary() or r.commit_id == req.commit_id
             for r in revreqs
         )
 
