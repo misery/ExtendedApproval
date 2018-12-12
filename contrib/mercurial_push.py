@@ -492,7 +492,7 @@ class MercurialReviewRequest(object):
             A generated commit id of changeset.
         """
         hasher = hashlib.md5()
-        hasher.update(self._changeset.author())
+        hasher.update(self._changeset.author().encode('utf-8'))
         hasher.update(self._changeset.date())
         hasher.update(str(self.repo))
         s = self.summary()
