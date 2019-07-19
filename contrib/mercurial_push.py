@@ -849,6 +849,10 @@ class MercurialHook(object):
             request (rbtools.hooks.mercurial.MercurialReviewRequest):
                 A review request object.
         """
+        if request.summary().startswith('SKIP'):
+            self.log('Skip changeset: %s', request.node())
+            return
+
         if request.exists():
             if request.modified():
                 request.sync()
