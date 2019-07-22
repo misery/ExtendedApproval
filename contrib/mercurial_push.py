@@ -294,12 +294,13 @@ class MercurialReviewRequest(object):
         self.base = base
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
+        self._skippable = None
 
         r = self._get_request()
         self.request = r
         self.existing = False if r is None else True
-        self.approved = False if r is None else r.approved
         self.failure = None if r is None else r.approval_failure
+        self.approved = False if r is None or self.skippable() else r.approved
 
         self.diffset_id = None
         if r is not None and 'latest_diff' in r.links:
@@ -326,6 +327,21 @@ class MercurialReviewRequest(object):
 
     def summary(self):
         return self._changeset.summary()
+
+    def skippable(self):
+        if self._skippable is None:
+            regex = r'Reviewed at https://'
+
+            if self.summary().startswith('SKIP'):
+                self._skippable = True
+                self.failure = 'Starts with SKIP'
+            elif re.search(regex, self._changeset.desc()):
+                self._skippable = True
+                self.failure = 'Description contains: "%s"' % regex
+            else:
+                self._skippable = False
+
+        return self._skippable
 
     def _info(self):
         return self._changeset.info()
@@ -849,8 +865,9 @@ class MercurialHook(object):
             request (rbtools.hooks.mercurial.MercurialReviewRequest):
                 A review request object.
         """
-        if request.summary().startswith('SKIP'):
-            self.log('Skip changeset: %s', request.node())
+        if request.skippable():
+            self.log('Skip changeset: %s | %s',
+                     request.node(), request.failure)
             return
 
         if request.exists():
