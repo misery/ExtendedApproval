@@ -6,14 +6,14 @@ It allows user to post to Review Board by using the
 ordinary 'hg push', without any need to learn or install RBTools locally.
 
 This hook fits the following workflow:
-1. A user makes some (local) commits
-2. He pushes those commits to the central server
+1. A user makes some (local) commits.
+2. He pushes those commits to the central server.
 3. The hook is invoked on the server. The hook checks whether a changeset
    exists and is modified. If it is modified it will be updated. Otherwise
-   it will be check if the changeset is approved in previous review
-   request. If the changeset does not exist a new request will be created.
+   it will check if the changeset is approved in that review request.
+   If the changeset does not exist a new request will be created.
 4. The hook denies the push if not all commits have been approved.
-   It approves the push if the commits have been approved, upon which the
+   It approves the push if all commits have been approved, upon which the
    commits are permanently added to the central repository.
 5. Users can then (try to) push the changesets again as often as they wish,
    until some has approved the review request and the push succeeds.
@@ -21,15 +21,16 @@ This hook fits the following workflow:
 In more detail, the hook does the following:
 1. Iterates over all incoming changesets, and tries to find a review request
    with the right commit ID. It uses a hash of the commit date and author
-   field. If it cannot find a review request it tries guess the changeset.
+   field. If it cannot find a review request it tries to guess the changeset.
 2. If you use "hg commit --amend" or "hg rebase" the "date author" hash
    won't be changed.
-   If you use "hg histedit" you should be aware that Mercurial will use the
-   newest date of the rolled/folded changeset. That will cause to break
+   If you use "hg histedit" you should be aware that Mercurial < 4.2 will
+   use the newest date of the rolled/folded changeset. That will cause to break
    the "date author" hash. So you should be aware that the hook tries to
-   guess the changeset by a score of the summary.
+   guess the changeset by the summary.
 
-   Best practices: Use "hg histedit" to edit a changeset with roll/fold.
+   Best practices: Use "hg histedit" on Mercurial < 4.2 to edit a changeset
+   with roll/fold.
    Push the changes and then update your summary or description.
 
 
@@ -57,8 +58,8 @@ You need to add the hook to your .hg/hgrc file of your repository.
 pretxnchangegroup.rb = /path/to/hook/mercurial_push.py
 
 
-This hook was tested with "hg serve -d" and Kallithea as a
-remote hosting platform and a local repository.
+This hook was tested with "hg serve", Kallithea and SCM-Manager
+as a remote hosting platform and a local repository.
 
 If the hook cannot find rbtools you should check the
 environment variable PYTHONPATH.
@@ -75,7 +76,7 @@ Setup:
 2. source /opt/hook/bin/activate
 3. pip install rbtools
 
-RBTools 0.7.11 or higher is recommended!
+RBTools 1.0.2 or higher is recommended!
 
 Wrapper:
 #!/usr/bin/env python2
