@@ -88,7 +88,7 @@ import sys
 if __name__ == '__main__':
     os.environ['PYTHONPATH'] = '/opt/hook/lib/python2.7/site-packages'
     os.environ['LC_CTYPE'] = 'en_US.UTF-8'
-    os.environ['HOOK_HMAC_KEY'] = 'add random stuff here'
+    os.environ['HOOK_HMAC_KEY'] = 'add random to override /etc/machine-id'
     sys.exit(subprocess.call(['/opt/hook/mercurial_push.py'], env=os.environ))
 
 
@@ -178,7 +178,11 @@ class MercurialDiffer(object):
             envKey = 'HOOK_HMAC_KEY'
             self.key = os.environ.get(envKey)
             if self.key is None:
-                raise HookError('You need to define %s' % envKey)
+                try:
+                    with open('/etc/machine-id', 'r') as content_file:
+                        self.key = content_file.read().strip()
+                except Exception:
+                    raise HookError('You need to define %s' % envKey)
 
             self._request_id = request_id
             self._base_commit_id = base_commit_id
