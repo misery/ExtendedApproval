@@ -760,6 +760,7 @@ class MercurialHook(object):
         """Set API root object."""
         cmd = MercurialHookCmd()
         server_url = cmd.get_server_url(None, None)
+        self.log('Review Board: %s', server_url)
         api_client, self.root = cmd.get_api(server_url)
         session = get_authenticated_session(api_client, self.root,
                                             auth_required=True, num_retries=0)
