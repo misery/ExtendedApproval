@@ -53,10 +53,13 @@ API_TOKEN: An API token to use for logging into the server. This is
 
 
 You need to add the hook to your .hg/hgrc file of your repository.
+This hook supports itself as an external hook or as in-process-hook.
 
 [hooks]
 pretxnchangegroup.rb = /path/to/hook/mercurial_push.py
 
+[hooks]
+pretxnchangegroup.rb = python:/path/to/hook/mercurial_push.py:hook
 
 This hook was tested with "hg serve", Kallithea and SCM-Manager
 as a remote hosting platform and a local repository.
@@ -703,7 +706,7 @@ class MercurialRevision(object):
 class MercurialHook(object):
     """Class to represent a hook for Mercurial repositories."""
 
-    def __init__(self, log):
+    def __init__(self, log, repo=None):
         self.log = log
         self.submitter = None
         self.repo_name = None
@@ -723,7 +726,10 @@ class MercurialHook(object):
             self.repo_name = os.environ['REPO_NAME']
         else:
             self.submitter = getpass.getuser()
-            self.repo_name = os.environ['HG_PENDING']
+            if repo is None:
+                self.repo_name = os.environ['HG_PENDING']
+            else:
+                self.repo_name = repo.root
 
         self.log('Push as user "%s" to "%s"...',
                  self.submitter, self.repo_name)
@@ -895,14 +901,13 @@ class MercurialHook(object):
             self.log('Created review request (%d) for '
                      'changeset: %s', request.id(), request.node())
 
-    def push_to_reviewboard(self):
+    def push_to_reviewboard(self, node):
         """Run the hook.
 
         Returns:
             int:
             Return code of execution. 0 on success, otherwise non-zero.
         """
-        node = os.environ.get('HG_NODE')
         if node is None or len(node) == 0:
             raise HookError('Initial changeset is undefined.')
 
@@ -912,6 +917,20 @@ class MercurialHook(object):
         self._set_root()
         self._set_repo_id()
         return self._handle_changeset_list(node)
+
+
+def hook(ui, repo, node, **kwargs):
+    def log(text, *args, **kwargs):
+        repo.ui.status(str((text % args) + '\n'))
+
+    os.chdir(repo.root)
+    try:
+        h = MercurialHook(partial(log), repo)
+        return h.push_to_reviewboard(node)
+    except Exception as e:
+        log(str(e))
+
+    return -1
 
 
 if __name__ == '__main__':
@@ -924,7 +943,7 @@ if __name__ == '__main__':
 
     try:
         h = MercurialHook(partial(logger.info))
-        sys.exit(h.push_to_reviewboard())
+        sys.exit(h.push_to_reviewboard(os.environ.get('HG_NODE')))
     except Exception as e:
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.exception('Backtrace of error: %s' % e)
