@@ -92,6 +92,7 @@ if __name__ == '__main__':
     os.environ['PYTHONPATH'] = '/opt/hook/lib/python2.7/site-packages'
     os.environ['LC_CTYPE'] = 'en_US.UTF-8'
     os.environ['HOOK_HMAC_KEY'] = 'add random to override /etc/machine-id'
+    os.environ['RBTOOLS_CONFIG_PATH'] = '/opt/hook'
     sys.exit(subprocess.call(['/opt/hook/mercurial_push.py'], env=os.environ))
 
 
