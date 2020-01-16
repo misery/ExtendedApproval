@@ -212,6 +212,14 @@ class MercurialDiffer(object):
         def getBaseCommitId(self):
             return self._base_commit_id
 
+        def _getHasher(self):
+            if self._request_id is None:
+                raise HookError('Cannot get hash without request id')
+
+            hasher = hmac.new(self.key, digestmod=hashlib.sha256)
+            hasher.update(str(self._request_id))
+            return hasher
+
         def getHash(self, diffset_id):
             if self._diff is None:
                 raise HookError('Cannot get hash of empty diff')
@@ -219,15 +227,11 @@ class MercurialDiffer(object):
             if diffset_id is None:
                 raise HookError('Cannot get hash without diffset id')
 
-            if self._request_id is None:
-                raise HookError('Cannot get hash without request id')
-
             if diffset_id in self._hashes:
                 return self._hashes[diffset_id]
 
-            hasher = hmac.new(self.key, digestmod=hashlib.sha256)
+            hasher = self._getHasher()
             hasher.update(str(diffset_id))
-            hasher.update(str(self._request_id))
             for line in self._diff.splitlines():
                 if (len(line) > 0 and not line.startswith(b'diff') and not
                    line.startswith(b'@@')):
