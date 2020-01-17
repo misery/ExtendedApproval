@@ -43,7 +43,8 @@ You need to configure a "hook" user with the following rights:
 Instead of the rights above you could set the "hook" user as an administrator.
 
 
-The credentials can be configured through the ~/.reviewboardrc file on server:
+The credentials can be configured through
+the .reviewboardrc file (see RBTOOLS_CONFIG_PATH) on server:
 
 REVIEWBOARD_URL: The URL of the Review Board server
 USERNAME: The username to use for logging into the server
@@ -53,11 +54,12 @@ API_TOKEN: An API token to use for logging into the server. This is
 
 
 You need to add the hook to your .hg/hgrc file of your repository.
+Use "/etc/gitlab/heptapod.hgrc" as the system-wide config for Heptapod.
 
 [hooks]
 pretxnchangegroup.rb = /path/to/hook/mercurial_push.py
 
-This hook was tested with "hg serve", Kallithea and SCM-Manager
+This hook was tested with "hg serve", Heptapod, Kallithea and SCM-Manager
 as a remote hosting platform and a local repository.
 
 If the hook cannot find rbtools you should check the
@@ -719,6 +721,13 @@ class MercurialHook(object):
                 self.log('Anonymous access is not supported')
             else:
                 self.submitter = kallithea['username']
+        elif 'HEPTAPOD_USERINFO_USERNAME' in e and \
+             'HEPTAPOD_PROJECT_PATH' in e and \
+             'HEPTAPOD_PROJECT_NAMESPACE_FULL_PATH' in e:
+            self.submitter = e['HEPTAPOD_USERINFO_USERNAME']
+            self.repo_name = \
+                e['HEPTAPOD_PROJECT_NAMESPACE_FULL_PATH'] + '/' + \
+                e['HEPTAPOD_PROJECT_PATH']
         elif 'REPO_NAME' in e and 'REMOTE_USER' in e:
             self.submitter = e['REMOTE_USER']
             self.repo_name = e['REPO_NAME']
