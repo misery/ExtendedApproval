@@ -711,20 +711,21 @@ class MercurialHook(object):
         self.root = None
         self.hgweb = None
 
-        if 'KALLITHEA_EXTRAS' in os.environ:
-            kallithea = json.loads(os.environ['KALLITHEA_EXTRAS'])
+        e = os.environ
+        if 'KALLITHEA_EXTRAS' in e:
+            kallithea = json.loads(e['KALLITHEA_EXTRAS'])
             self.repo_name = kallithea['repository']
             if 'default' in kallithea['username']:
                 self.log('Anonymous access is not supported')
             else:
                 self.submitter = kallithea['username']
-        elif 'REPO_NAME' in os.environ and 'REMOTE_USER' in os.environ:
-            self.submitter = os.environ['REMOTE_USER']
-            self.repo_name = os.environ['REPO_NAME']
+        elif 'REPO_NAME' in e and 'REMOTE_USER' in e:
+            self.submitter = e['REMOTE_USER']
+            self.repo_name = e['REPO_NAME']
         else:
             self.submitter = getpass.getuser()
             if repo is None:
-                self.repo_name = os.environ['HG_PENDING']
+                self.repo_name = e['HG_PENDING']
             else:
                 self.repo_name = repo
 
