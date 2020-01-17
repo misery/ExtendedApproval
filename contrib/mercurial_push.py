@@ -220,6 +220,14 @@ class MercurialDiffer(object):
             hasher.update(str(self._request_id))
             return hasher
 
+        def getRawHash(self, content):
+            if content is None:
+                raise HookError('Cannot get hash of empty content')
+
+            hasher = self._getHasher()
+            hasher.update(content)
+            return hasher.hexdigest()
+
         def getHash(self, diffset_id):
             if self._diff is None:
                 raise HookError('Cannot get hash of empty diff')
@@ -306,6 +314,11 @@ class MercurialReviewRequest(object):
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
         self._skippable = None
+
+        regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
+        if not regex:
+            regex = r'.*\.(png|jpg|jpeg|gif|svg|webp|ico|bmp)$'
+        self.regexUpload = re.compile(regex)
 
         r = self._get_request()
         self.request = r
@@ -416,6 +429,54 @@ class MercurialReviewRequest(object):
         return ('diff_hash' in e and
                 self.diff_info.getHash(self.diffset_id) == e['diff_hash'])
 
+    def _update_attachments(self):
+        stored_hashes = {}
+        if 'file_hashes' in self.request.extra_data:
+            stored_hashes = json.loads(self.request.extra_data['file_hashes'])
+
+        a = self.request.get_file_attachments(only_fields='filename,'
+                                              'attachment_history_id',
+                                              only_links='delete')
+        hashes = {}
+        existing = {}
+        for entry in a:
+            existing[entry['filename']] = entry
+
+        def modified(filename):
+            d = self._changeset.diffstat()
+            return filename in d and d[filename] != '0'
+
+        def handle_upload(filename):
+            # otherwise Review Board strips the path
+            f = filename.replace('/', ' # ')
+            e = existing.get(f)
+            history = e['attachment_history_id'] if e else None
+            content = self._changeset.file(filename)
+            hashes[f] = self.diff_info.getRawHash(content)
+            if f not in stored_hashes or hashes[f] != stored_hashes[f]:
+                a.upload_attachment(f, content, None, history)
+
+        mods = self._changeset.files('{file_mods|json}')
+        adds = self._changeset.files('{file_adds|json}')
+        foundAttachments = []
+        for entry in set(adds + mods):
+            if self.regexUpload.match(entry):
+                foundAttachments.append(entry)
+
+        if len(foundAttachments) > 0:
+            files = self._changeset.files()  # let's detect deleted files
+            copies = self._changeset.files('{file_copies|json}')
+            for e in foundAttachments:
+                if e not in files and e in copies and not modified(e):
+                    continue
+                handle_upload(entry)
+
+        for entry in stored_hashes:
+            if entry not in hashes:
+                existing.get(entry).delete()
+
+        return json.dumps(hashes)
+
     def _update(self):
         """Update review request draft based on changeset."""
         self.approved = False
@@ -435,6 +496,8 @@ class MercurialReviewRequest(object):
             # re-fetch diffset to get id
             diff = draft.get_draft_diffs(only_links='', only_fields='id')
             extra_data = {'extra_data.diff_hash': d.getHash(diff[0].id)}
+            # https://reviews.reviewboard.org/r/10844/
+            # extra_data['extra_data.file_hashes'] = self._update_attachments()
 
         refs = [six.text_type(x)
                 for x in get_ticket_refs(self._changeset.desc())]
@@ -540,7 +603,7 @@ class MercurialReviewRequest(object):
         """
         fields = ('summary,approved,approval_failure,id,commit_id,'
                   'branch,description,extra_data')
-        links = 'submitter,update,latest_diff,draft'
+        links = 'submitter,update,latest_diff,draft,file_attachments'
 
         reqs = self.root.get_review_requests(repository=self.repo,
                                              status='pending',
@@ -659,6 +722,11 @@ class MercurialRevision(object):
     def files(self, template='{files|json}'):
         return json.loads(execute(['hg', 'log', '-r', self.node(),
                                    '--template', template]))
+
+    def file(self, filename):
+        return execute(['hg', 'cat', '-r', self.node(), filename],
+                       with_errors=False,
+                       results_unicode=False)
 
     def info(self):
         if self._info is None:
