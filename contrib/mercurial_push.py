@@ -603,7 +603,6 @@ class MercurialRevision(object):
         self._date = None
         self._info = None
         self._merges = None
-        self._files = None
 
     def node(self, short=True):
         n = self.json['node']
@@ -640,13 +639,9 @@ class MercurialRevision(object):
             self._summary = self.desc().splitlines()[0].strip()
         return self._summary
 
-    def files(self):
-        if self._files is None:
-            files = execute(['hg', 'log', '-r', self.node(),
-                             '--template', '{files % "{file}\n"}'])
-            self._files = files.splitlines()
-
-        return self._files
+    def files(self, template='{files|json}'):
+        return json.loads(execute(['hg', 'log', '-r', self.node(),
+                                   '--template', template]))
 
     def info(self):
         if self._info is None:
@@ -663,7 +658,7 @@ class MercurialRevision(object):
                 files = self.files()
                 self._info += '# Touched %d file(s) by this merge ' \
                               'changeset\n' % len(files)
-                for entry in self.files():
+                for entry in files:
                     self._info += '+ ' + entry + '\n'
 
                 self._info += '# Merges %d changeset(s)\n' % len(merges)
