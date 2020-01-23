@@ -603,6 +603,7 @@ class MercurialRevision(object):
         self._date = None
         self._info = None
         self._merges = None
+        self._diffstat = None
 
     def node(self, short=True):
         n = self.json['node']
@@ -638,6 +639,18 @@ class MercurialRevision(object):
         if self._summary is None:
             self._summary = self.desc().splitlines()[0].strip()
         return self._summary
+
+    def diffstat(self):
+        if self._diffstat is None:
+            self._diffstat = {}
+            o = execute(['hg', 'diff', '-g',
+                         '--stat', '-c', self.node()]).splitlines()
+            del o[-1]  # useless summary line
+            for entry in o:
+                e = entry.rsplit(' | ')
+                self._diffstat[e[0].strip()] = e[1].strip()
+
+        return self._diffstat
 
     def files(self, template='{files|json}'):
         return json.loads(execute(['hg', 'log', '-r', self.node(),
