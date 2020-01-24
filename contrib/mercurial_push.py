@@ -434,13 +434,13 @@ class MercurialReviewRequest(object):
         if 'file_hashes' in self.request.extra_data:
             stored_hashes = json.loads(self.request.extra_data['file_hashes'])
 
-        a = self.request.get_file_attachments(only_fields='filename,'
+        a = self.request.get_file_attachments(only_fields='caption,'
                                               'attachment_history_id',
                                               only_links='delete')
         hashes = {}
         existing = {}
         for entry in a:
-            existing[entry['filename']] = entry
+            existing[entry['caption']] = entry
 
         def modified(filename):
             d = self._changeset.diffstat()
