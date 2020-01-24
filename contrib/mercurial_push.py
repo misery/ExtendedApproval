@@ -465,7 +465,9 @@ class MercurialReviewRequest(object):
             files = self._changeset.files()  # let's detect deleted files
             copies = self._changeset.files('{file_copies|json}')
             for e in foundAttachments:
-                if e not in files and e in copies and not modified(e):
+                if e not in files:
+                    continue
+                if e in copies and not modified(e):
                     continue
                 handle_upload(e)
 
