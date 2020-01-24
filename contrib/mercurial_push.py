@@ -446,15 +446,13 @@ class MercurialReviewRequest(object):
             d = self._changeset.diffstat()
             return filename in d and d[filename] != '0'
 
-        def handle_upload(filename):
-            # otherwise Review Board strips the path
-            f = filename.replace('/', ' # ')
+        def handle_upload(f):
             e = existing.get(f)
             history = e['attachment_history_id'] if e else None
-            content = self._changeset.file(filename)
+            content = self._changeset.file(f)
             hashes[f] = self.diff_info.getRawHash(content)
             if f not in stored_hashes or hashes[f] != stored_hashes[f]:
-                a.upload_attachment(f, content, None, history)
+                a.upload_attachment(f, content, f, history)
 
         mods = self._changeset.files('{file_mods|json}')
         adds = self._changeset.files('{file_adds|json}')
@@ -469,7 +467,7 @@ class MercurialReviewRequest(object):
             for e in foundAttachments:
                 if e not in files and e in copies and not modified(e):
                     continue
-                handle_upload(entry)
+                handle_upload(e)
 
         for entry in stored_hashes:
             if entry not in hashes:
