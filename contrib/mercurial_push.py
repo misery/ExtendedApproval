@@ -114,6 +114,7 @@ import re
 import six
 from functools import partial
 
+from rbtools import __version__ as rbversion
 from rbtools.clients.mercurial import MercurialClient
 from rbtools.commands import Command
 from rbtools.hooks.common import HookError
@@ -496,8 +497,9 @@ class MercurialReviewRequest(object):
             # re-fetch diffset to get id
             diff = draft.get_draft_diffs(only_links='', only_fields='id')
             extra_data = {'extra_data.diff_hash': d.getHash(diff[0].id)}
-            # https://reviews.reviewboard.org/r/10844/
-            # extra_data['extra_data.file_hashes'] = self._update_attachments()
+            if rbversion >= '1.0.3':
+                extra_data['extra_data.file_hashes'] = \
+                                                     self._update_attachments()
 
         refs = [six.text_type(x)
                 for x in get_ticket_refs(self._changeset.desc())]
