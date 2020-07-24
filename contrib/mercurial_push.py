@@ -115,6 +115,7 @@ import six
 from functools import partial
 
 from rbtools import __version__ as rbversion
+from rbtools.clients.git import GitClient
 from rbtools.clients.mercurial import MercurialClient
 from rbtools.commands import Command
 from rbtools.hooks.common import HookError
@@ -171,7 +172,7 @@ def get_ticket_refs(text, prefixes=None):
     return sorted(set(ids))
 
 
-class MercurialDiffer(object):
+class BaseDiffer(object):
     """A class to return diffs compatible with server."""
 
     class DiffContent(object):
@@ -252,10 +253,7 @@ class MercurialDiffer(object):
 
     def __init__(self, root, request_id):
         """Initialize object with the given API root."""
-        from rbtools.commands import Command
-        self.tool = MercurialClient()
-        cmd = Command()
-        self.tool.capabilities = cmd.get_capabilities(api_root=root)
+        self.tool = None
         self._request_id = request_id
 
     def diff(self, rev1, rev2, base):
@@ -279,13 +277,28 @@ class MercurialDiffer(object):
                      'tip': rev2,
                      'parent_base': base}
         info = self.tool.diff(revisions=revisions)
-        return MercurialDiffer.DiffContent(self._request_id,
-                                           info['diff'],
-                                           info['base_commit_id'],
-                                           info['parent_diff'])
+        return BaseDiffer.DiffContent(self._request_id,
+                                      info['diff'],
+                                      info['base_commit_id'],
+                                      info['parent_diff'])
 
 
-class MercurialReviewRequest(object):
+class MercurialDiffer(BaseDiffer):
+    def __init__(self, root, request_id):
+        super(MercurialDiffer, self).__init__(root, request_id)
+        self.tool = MercurialClient()
+        cmd = Command()
+        self.tool.capabilities = cmd.get_capabilities(api_root=root)
+
+
+class GitDiffer(BaseDiffer):
+    def __init__(self, root, request_id):
+        super(GitDiffer, self).__init__(root, request_id)
+        self.tool = GitClient()
+        self.tool.get_repository_info()
+
+
+class BaseReviewRequest(object):
     """A class to represent a review request from a Mercurial hook."""
 
     def __init__(self, root, repo, changeset, base, submitter):
@@ -530,45 +543,13 @@ class MercurialReviewRequest(object):
                         repository=self.repo,
                         submit_as=self.submitter)
 
-    def _generate_diff_info(self):
-        """Generate the diff if it has been changed.
-
-        Fake a diff if the diff cannot be created!
-        This will happend for the following commands:
-        - A commit for new branch: "hg branch" and "hg push --new-branch"
-        - A commit to close a branch: "hg commit --close-branch"
-        """
-        differ = MercurialDiffer(self.root, self.request.id)
-        self.diff_info = differ.diff(self.node() + '^1',
-                                     self.node(),
-                                     self.base)
-
-        if self.diff_info.getDiff() is None:
-            detail = 'changeset:   {node}\n' \
-                     'branch:      {branch}\n' \
-                     'parent:      {p1node}\n' \
-                     'parent:      {p2node}\n' \
-                     'user:        {author}\n' \
-                     'date:        {localdate(date, "UTC")|date}\n' \
-                     'extra:       {join(extras, "\n             ")}\n' \
-                     'description:\n{desc}\n'
-            cmd = ['hg', 'log', '-T', detail, '-r', self.node()]
-            raw_data = execute(cmd,
-                               results_unicode=False).strip().splitlines()
-            content = []
-            for data in raw_data:
-                content.append(b'+%s' % data)
-
-            fake_diff = FAKE_DIFF_TEMPL % (len(raw_data) + 5,
-                                           b'\n'.join(content))
-            self.diff_info.setDiff(fake_diff)
-
     def _modified_description(self):
         """Filter changeset information and check if the
            description got changed.
         """
         regex = (r'\([0-9]{4}-[0-9]{2}-[0-9]{2} '
-                 r'[0-9]{2}:[0-9]{2}:[0-9]{2}[+-][0-9]{2}:[0-9]{2}\) '
+                 r'[0-9]{2}:[0-9]{2}:[0-9]{2}'
+                 r'[\s]{0,1}[+-][0-9]{2}[:]{0,1}[0-9]{2}\) '
                  r'\[[0-9|a-z]+\]')
         regex = re.compile(regex)
 
@@ -642,10 +623,82 @@ class MercurialReviewRequest(object):
         return None
 
 
-class MercurialHookCmd(Command):
+class MercurialReviewRequest(BaseReviewRequest):
+    def __init__(self, root, repo, changeset, base, submitter):
+        super(MercurialReviewRequest, self).__init__(root,
+                                                     repo,
+                                                     changeset,
+                                                     base,
+                                                     submitter)
+
+    def _generate_diff_info(self):
+        """Generate the diff if it has been changed.
+
+        Fake a diff if the diff cannot be created!
+        This will happend for the following commands:
+        - A commit for new branch: "hg branch" and "hg push --new-branch"
+        - A commit to close a branch: "hg commit --close-branch"
+        """
+        differ = MercurialDiffer(self.root, self.request.id)
+        self.diff_info = differ.diff(self.node() + '^1',
+                                     self.node(),
+                                     self.base)
+
+        if self.diff_info.getDiff() is None:
+            detail = 'changeset:   {node}\n' \
+                     'branch:      {branch}\n' \
+                     'parent:      {p1node}\n' \
+                     'parent:      {p2node}\n' \
+                     'user:        {author}\n' \
+                     'date:        {localdate(date, "UTC")|date}\n' \
+                     'extra:       {join(extras, "\n             ")}\n' \
+                     'description:\n{desc}\n'
+            cmd = ['hg', 'log', '-T', detail, '-r', self.node()]
+            raw_data = execute(cmd,
+                               results_unicode=False).strip().splitlines()
+            content = []
+            for data in raw_data:
+                content.append(b'+%s' % data)
+
+            fake_diff = FAKE_DIFF_TEMPL % (len(raw_data) + 5,
+                                           b'\n'.join(content))
+            self.diff_info.setDiff(fake_diff)
+
+
+class GitReviewRequest(BaseReviewRequest):
+    def __init__(self, root, repo, changeset, base, submitter):
+        super(GitReviewRequest, self).__init__(root,
+                                               repo,
+                                               changeset,
+                                               base,
+                                               submitter)
+
+    def _generate_diff_info(self):
+        """Generate the diff if it has been changed."""
+
+        # git hash-object -t tree /dev/null
+        initialCommit = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
+        if self.base == '0000000000000000000000000000000000000000':
+            base = initialCommit
+        else:
+            base = self.base
+
+        if len(self._changeset.parent()) > 0:
+            parent = self.node() + '^1'
+        else:
+            parent = initialCommit
+
+        differ = GitDiffer(self.root, self.request.id)
+        self.diff_info = differ.diff(parent,
+                                     self.node(),
+                                     base)
+
+
+class MercurialGitHookCmd(Command):
     """Helper to parse configuration from .reviewboardrc file."""
 
-    name = 'MercurialHook'
+    name = 'MercurialGitHook'
     option_list = [
         Command.server_options,
     ]
@@ -655,80 +708,15 @@ class MercurialHookCmd(Command):
         self.options = parser.parse_args([])
 
 
-class MercurialRevision(object):
-    """Class to represent information of changeset."""
-    @staticmethod
-    def fetch(revset):
-        changes = execute(['hg', 'log', '-r', revset,
-                           '--template', 'json'])
-        result = []
-        for entry in json.loads(changes):
-            result.append(MercurialRevision(entry))
-        return result
-
-    def __init__(self, json):
-        self.json = json
+class BaseRevision(object):
+    def __init__(self):
         self._summary = None
-        self._date = None
         self._info = None
-        self._merges = None
-        self._diffstat = None
-
-    def node(self, short=True):
-        n = self.json['node']
-        return n[:12] if short else n
-
-    def branch(self):
-        return self.json['branch']
-
-    def author(self):
-        return self.json['user']
-
-    def date(self):
-        if self._date is None:
-            class Offset(dt.tzinfo):
-                def __init__(self, offset):
-                    self._offset = dt.timedelta(seconds=offset)
-
-                def utcoffset(self, dt):
-                    return self._offset
-
-            d = self.json['date']
-            offset = d[1] * -1
-            d = dt.datetime.utcfromtimestamp(d[0] + offset)
-            d = d.replace(tzinfo=Offset(offset))
-            self._date = d.isoformat(str(' '))
-
-        return self._date
-
-    def desc(self):
-        return self.json['desc']
 
     def summary(self):
         if self._summary is None:
             self._summary = self.desc().splitlines()[0].strip()
         return self._summary
-
-    def diffstat(self):
-        if self._diffstat is None:
-            self._diffstat = {}
-            o = execute(['hg', 'diff', '-g',
-                         '--stat', '-c', self.node()]).splitlines()
-            del o[-1]  # useless summary line
-            for entry in o:
-                e = entry.rsplit(' | ')
-                self._diffstat[e[0].strip()] = e[1].strip()
-
-        return self._diffstat
-
-    def files(self, template='{files|json}'):
-        return json.loads(execute(['hg', 'log', '-r', self.node(),
-                                   '--template', template]))
-
-    def file(self, filename):
-        return execute(['hg', 'cat', '-r', self.node(), filename],
-                       with_errors=False,
-                       results_unicode=False)
 
     def info(self):
         if self._info is None:
@@ -767,6 +755,76 @@ class MercurialRevision(object):
 
         return self._info
 
+
+class MercurialRevision(BaseRevision):
+    """Class to represent information of changeset."""
+    @staticmethod
+    def fetch(revset):
+        changes = execute(['hg', 'log', '-r', revset,
+                           '--template', 'json'])
+        result = []
+        for entry in json.loads(changes):
+            result.append(MercurialRevision(entry))
+        return result
+
+    def __init__(self, json):
+        super(MercurialRevision, self).__init__()
+        self.json = json
+        self._date = None
+        self._merges = None
+        self._diffstat = None
+
+    def node(self, short=True):
+        n = self.json['node']
+        return n[:12] if short else n
+
+    def branch(self):
+        return self.json['branch']
+
+    def author(self):
+        return self.json['user']
+
+    def date(self):
+        if self._date is None:
+            class Offset(dt.tzinfo):
+                def __init__(self, offset):
+                    self._offset = dt.timedelta(seconds=offset)
+
+                def utcoffset(self, dt):
+                    return self._offset
+
+            d = self.json['date']
+            offset = d[1] * -1
+            d = dt.datetime.utcfromtimestamp(d[0] + offset)
+            d = d.replace(tzinfo=Offset(offset))
+            self._date = d.isoformat(str(' '))
+
+        return self._date
+
+    def desc(self):
+        return self.json['desc']
+
+    def diffstat(self):
+        if self._diffstat is None:
+            self._diffstat = {}
+            o = execute(['hg', 'diff', '-g',
+                         '--stat', '-c', self.node()]).splitlines()
+            del o[-1]  # useless summary line
+            for entry in o:
+                e = entry.rsplit(' | ')
+                self._diffstat[e[0].strip()] = e[1].strip()
+
+        return self._diffstat
+
+    def files(self, template='{files|json}'):
+        return json.loads(execute(['hg', 'log', '-r', self.node(),
+                                   '--template', template]))
+
+    def file(self, filename):
+        return execute(['hg', 'cat', '-r', self.node(), filename],
+                       with_errors=False,
+                       results_unicode=False)
+
     def merges(self):
         """Get all changeset of this merge change.
 
@@ -784,16 +842,87 @@ class MercurialRevision(object):
         return self._merges
 
 
-class MercurialHook(object):
+class GitRevision(BaseRevision):
+    """Class to represent information of changeset."""
+    @staticmethod
+    def fetch(node, base):
+        if base == '0000000000000000000000000000000000000000':
+            rev = node
+        else:
+            rev = '%s..%s' % (base, node)
+        changes = execute(['git', 'rev-list', rev]).splitlines()
+        changes.reverse()
+
+        result = []
+        for entry in changes:
+            known = execute(['git', 'branch', '--contains', entry])
+            if len(known) > 0:
+                continue
+            result.append(GitRevision(entry))
+        return result
+
+    def __init__(self, hashnode):
+        super(GitRevision, self).__init__()
+        self._hash = hashnode
+        self._merges = None
+        self._diffstat = None
+
+        pretty = '--pretty=format:%an <%ae>#%ai#%P#%B'
+        data = execute(['git', 'log', '-1', self._hash, pretty])
+        data = data.split('#', 4)
+        self._user = data[0]
+        self._date = data[1]
+        self._parent = data[2]
+        self._desc = data[3]
+
+    def parent(self):
+        return self._parent
+
+    def node(self, short=True):
+        return self._hash[:12] if short else self._hash
+
+    def branch(self):
+        return 'unknown'
+
+    def author(self):
+        return self._user
+
+    def date(self):
+        return self._date
+
+    def desc(self):
+        return self._desc
+
+    def diffstat(self):
+        return ''
+
+    def files(self, template='{files|json}'):
+        return []
+
+    def file(self, filename):
+        return ''
+
+    def merges(self):
+        """Get all changeset of this merge change.
+
+        If this is a merge changeset we can fetch
+        all changesets that will be merged.
+        """
+        return None
+
+
+class BaseHook(object):
     """Class to represent a hook for Mercurial repositories."""
 
-    def __init__(self, log, repo=None):
+    def __init__(self, log, name, review_request_class, repo=None):
         self.log = log
         self.submitter = None
         self.repo_name = None
         self.repo_id = None
         self.root = None
         self.hgweb = None
+        self.name = name
+        self.review_request_class = review_request_class
 
         e = os.environ
         if 'KALLITHEA_EXTRAS' in e:
@@ -815,26 +944,21 @@ class MercurialHook(object):
             self.repo_name = e['REPO_NAME']
         else:
             self.submitter = getpass.getuser()
-            if repo is None:
-                self.repo_name = e['HG_PENDING']
-            else:
+            if repo is not None:
                 self.repo_name = repo
-
-        self.log('Push as user "%s" to "%s"...',
-                 self.submitter, self.repo_name)
 
     def _set_repo_id(self):
         """Set ID of repository."""
         fields = 'path,mirror_path,id'
 
         repos = self.root.get_repositories(name=self.repo_name,
-                                           tool='Mercurial',
+                                           tool=self.name,
                                            only_fields=fields,
                                            only_links='')
 
         if repos.num_items < 1:
             repos = self.root.get_repositories(path=self.repo_name,
-                                               tool='Mercurial',
+                                               tool=self.name,
                                                only_fields=fields,
                                                only_links='')
             if repos.num_items < 1:
@@ -853,7 +977,7 @@ class MercurialHook(object):
 
     def _set_root(self):
         """Set API root object."""
-        cmd = MercurialHookCmd()
+        cmd = MercurialGitHookCmd()
         server_url = cmd.get_server_url(None, None)
         self.log('Review Board: %s', server_url)
         api_client, self.root = cmd.get_api(server_url)
@@ -862,17 +986,6 @@ class MercurialHook(object):
         if session is None or not session.authenticated:
             raise HookError('Please add an USERNAME and a PASSWORD or '
                             'API_TOKEN to .reviewboardrc')
-
-    def _list_of_incoming(self, node):
-        """Return a list of all changesets after (and including) node.
-
-        Assumes that all incoming changeset have subsequent revision numbers.
-
-        Returns:
-            list of object:
-            The list of MercurialRevision.
-        """
-        return MercurialRevision.fetch(node + ':')
 
     def _check_duplicate(self, req, revreqs):
         """Check if a summary or commit_id is already used during this push.
@@ -893,7 +1006,7 @@ class MercurialHook(object):
             for r in revreqs
         )
 
-    def _handle_changeset_list(self, node):
+    def _handle_changeset_list(self, node, base=None):
         """Process all incoming changesets.
 
         Args:
@@ -904,17 +1017,16 @@ class MercurialHook(object):
             int:
             0 on success, otherwise non-zero.
         """
-        changesets = self._list_of_incoming(node)
-        base = node + '^1'
+        changesets = self._list_of_incoming(node, base)
         revreqs = []
         self.log('Processing %d changeset(s)...', len(changesets))
 
         for changeset in changesets:
-            request = MercurialReviewRequest(self.root,
-                                             self.repo_id,
-                                             changeset,
-                                             base,
-                                             self.submitter)
+            request = self.review_request_class(self.root,
+                                                self.repo_id,
+                                                changeset,
+                                                base,
+                                                self.submitter)
 
             if self._check_duplicate(request, revreqs):
                 self.log('Ignoring changeset (%s) as it has a '
@@ -953,11 +1065,13 @@ class MercurialHook(object):
                 r.close(self.hgweb)
             return 0
         elif idx > 0:
-            self.log('If you want to push the already approved ')
-            self.log('changes, you can (probably) execute this:')
-            self.log('hg push -r %s', revreqs[idx - 1].node())
+            self._log_push_info(revreqs[idx - 1].node())
 
         return 1
+
+    def _log_push_info(self, node=None):
+        self.log('If you want to push the already approved ')
+        self.log('changes, you can (probably) execute this:')
 
     def _handle_review_request(self, request):
         """Handle given review request.
@@ -990,13 +1104,16 @@ class MercurialHook(object):
             self.log('Created review request (%d) for '
                      'changeset: %s', request.id(), request.node())
 
-    def push_to_reviewboard(self, node):
+    def push_to_reviewboard(self, node, base=None):
         """Run the hook.
 
         Returns:
             int:
             Return code of execution. 0 on success, otherwise non-zero.
         """
+        self.log('Push as user "%s" to "%s"...',
+                 self.submitter, self.repo_name)
+
         if node is None or len(node) == 0:
             raise HookError('Initial changeset is undefined.')
 
@@ -1005,7 +1122,64 @@ class MercurialHook(object):
 
         self._set_root()
         self._set_repo_id()
-        return self._handle_changeset_list(node)
+        return self._handle_changeset_list(node, base)
+
+
+class MercurialHook(BaseHook):
+    """Class to represent a hook for Mercurial repositories."""
+
+    def __init__(self, log, repo=None):
+        super(MercurialHook, self).__init__(log,
+                                            'Mercurial',
+                                            MercurialReviewRequest)
+
+        if self.repo_name is None:
+            self.repo_name = os.environ['HG_PENDING']
+
+    def _list_of_incoming(self, node, base):
+        """Return a list of all changesets after (and including) node.
+
+        Assumes that all incoming changeset have subsequent revision numbers.
+
+        Returns:
+            list of object:
+            The list of MercurialRevision.
+        """
+        return MercurialRevision.fetch(node + ':')
+
+    def _log_push_info(self, node):
+        super(MercurialHook, self)._log_push_info(node)
+        self.log('hg push -r %s', node)
+
+
+class GitHook(BaseHook):
+    """Class to represent a hook for Git repositories."""
+
+    def __init__(self, log, repo=None):
+        super(GitHook, self).__init__(log, 'Git', GitReviewRequest)
+
+        if self.repo_name is None:
+            if os.environ.get('GIT_DIR') == '.':
+                self.repo_name = os.getcwd()
+                if self.repo_name.endswith('/.git'):
+                    self.repo_name = self.repo_name[:-5]
+            else:
+                self.repo_name = os.environ.get('GIT_DIR')
+
+    def _list_of_incoming(self, node, base):
+        """Return a list of all changesets after (and including) node.
+
+        Assumes that all incoming changeset have subsequent revision numbers.
+
+        Returns:
+            list of object:
+            The list of GitRevision.
+        """
+        return GitRevision.fetch(node, base)
+
+    def _log_push_info(self, node):
+        super(GitHook, self)._log_push_info(node)
+        self.log('git push origin %s:master', node)
 
 
 if __name__ == '__main__':
@@ -1017,8 +1191,24 @@ if __name__ == '__main__':
     logger = logging.getLogger('reviewboardhook')
 
     try:
-        h = MercurialHook(partial(logger.info))
-        sys.exit(h.push_to_reviewboard(os.environ.get('HG_NODE')))
+        if 'HG_NODE' in os.environ:
+            logger.debug('Mercurial detected...')
+            h = MercurialHook(partial(logger.info))
+            node = os.environ.get('HG_NODE')
+            base = node + '^1'
+            sys.exit(h.push_to_reviewboard(node, base))
+        else:
+            logger.debug('Git detected...')
+            lines = sys.stdin.readlines()
+
+            if len(lines) > 1:
+                logger.info('Push of multiple branches not supported')
+                sys.exit(1)
+
+            h = GitHook(partial(logger.info))
+            (base, node, ref) = lines[0].split()
+            sys.exit(h.push_to_reviewboard(node, base))
+
     except Exception as e:
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.exception('Backtrace of error: %s' % e)
