@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 """A Mercurial/git hook to post to Review Board on push to a central server.
 
 The hook was designed to make posting to Review Board easy.
