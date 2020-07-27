@@ -1182,7 +1182,7 @@ class GitHook(BaseHook):
         self.log('git push origin %s:master', node)
 
 
-if __name__ == '__main__':
+def main(stdin=None):
     import sys
     import logging
 
@@ -1199,7 +1199,12 @@ if __name__ == '__main__':
             sys.exit(h.push_to_reviewboard(node, base))
         else:
             logger.debug('Git detected...')
-            lines = sys.stdin.readlines()
+            if stdin is None:
+                lines = sys.stdin.readlines()
+            elif isinstance(stdin, list):
+                lines = stdin
+            else:
+                lines = stdin.splitlines()
 
             if len(lines) > 1:
                 logger.info('Push of multiple branches not supported')
@@ -1217,3 +1222,7 @@ if __name__ == '__main__':
                 logger.error(line)
 
     sys.exit(-1)
+
+
+if __name__ == '__main__':
+    main()
