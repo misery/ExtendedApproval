@@ -979,7 +979,15 @@ class BaseHook(object):
     def _set_root(self):
         """Set API root object."""
         cmd = MercurialGitHookCmd()
-        server_url = cmd.get_server_url(None, None)
+        try:
+            server_url = cmd.get_server_url(None, None)
+        except Exception as e:
+            self.log('Trying .reviewboardrc (RBTOOLS_CONFIG_PATH) file "'
+                     'in "%s" and "%s"',
+                     os.environ.get('HOME'),
+                     os.environ.get('RBTOOLS_CONFIG_PATH'))
+            raise e
+
         self.log('Review Board: %s', server_url)
         api_client, self.root = cmd.get_api(server_url)
         session = get_authenticated_session(api_client, self.root,
