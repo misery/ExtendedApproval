@@ -1,5 +1,5 @@
 #!/usr/bin/env python2
-"""A Mercurial hook to post to Review Board on push to a central server.
+"""A Mercurial/git hook to post to Review Board on push to a central server.
 
 The hook was designed to make posting to Review Board easy.
 It allows user to post to Review Board by using the
@@ -53,6 +53,7 @@ API_TOKEN: An API token to use for logging into the server. This is
            recommended and replaces the use of PASSWORD.
 
 
+## Mercurial
 You need to add the hook to your .hg/hgrc file of your repository.
 Use "/etc/gitlab/heptapod.hgrc" as the system-wide config for Heptapod.
 
