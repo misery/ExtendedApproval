@@ -113,6 +113,7 @@ import json
 import os
 import re
 import six
+import sys
 from functools import partial
 
 from rbtools import __version__ as rbversion
@@ -219,8 +220,13 @@ class BaseDiffer(object):
             if self._request_id is None:
                 raise HookError('Cannot get hash without request id')
 
-            hasher = hmac.new(self.key, digestmod=hashlib.sha256)
-            hasher.update(str(self._request_id))
+            if sys.version_info > (3, 0):
+                k = bytes(self.key, 'ascii')
+            else:
+                k = self.key
+
+            hasher = hmac.new(k, digestmod=hashlib.sha256)
+            hasher.update(bytes(self._request_id))
             return hasher
 
         def getRawHash(self, content):
@@ -242,7 +248,7 @@ class BaseDiffer(object):
                 return self._hashes[diffset_id]
 
             hasher = self._getHasher()
-            hasher.update(str(diffset_id))
+            hasher.update(bytes(diffset_id))
             for line in self._diff.splitlines():
                 if (len(line) > 0 and not line.startswith(b'diff') and not
                    line.startswith(b'@@')):
@@ -567,8 +573,8 @@ class BaseReviewRequest(object):
         """
         hasher = hashlib.md5()
         hasher.update(self._changeset.author().encode('utf-8'))
-        hasher.update(self._changeset.date())
-        hasher.update(str(self.repo))
+        hasher.update(self._changeset.date().encode('utf-8'))
+        hasher.update(bytes(self.repo))
         s = self.summary()
         if (s.startswith('[maven-release-plugin]') or
                 s.startswith('Added tag ') or
