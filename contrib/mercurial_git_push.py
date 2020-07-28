@@ -226,7 +226,7 @@ class BaseDiffer(object):
                 k = self.key
 
             hasher = hmac.new(k, digestmod=hashlib.sha256)
-            hasher.update(bytes(self._request_id))
+            hasher.update(six.text_type(self._request_id).encode('utf-8'))
             return hasher
 
         def getRawHash(self, content):
@@ -248,7 +248,7 @@ class BaseDiffer(object):
                 return self._hashes[diffset_id]
 
             hasher = self._getHasher()
-            hasher.update(bytes(diffset_id))
+            hasher.update(six.text_type(diffset_id).encode('utf-8'))
             for line in self._diff.splitlines():
                 if (len(line) > 0 and not line.startswith(b'diff') and not
                    line.startswith(b'@@')):
@@ -574,7 +574,7 @@ class BaseReviewRequest(object):
         hasher = hashlib.md5()
         hasher.update(self._changeset.author().encode('utf-8'))
         hasher.update(self._changeset.date().encode('utf-8'))
-        hasher.update(bytes(self.repo))
+        hasher.update(six.text_type(self.repo).encode('utf-8'))
         s = self.summary()
         if (s.startswith('[maven-release-plugin]') or
                 s.startswith('Added tag ') or
