@@ -113,7 +113,6 @@ import json
 import os
 import re
 import six
-import sys
 from functools import partial
 
 from rbtools import __version__ as rbversion
@@ -220,10 +219,10 @@ class BaseDiffer(object):
             if self._request_id is None:
                 raise HookError('Cannot get hash without request id')
 
-            if sys.version_info > (3, 0):
-                k = bytes(self.key, 'ascii')
-            else:
+            if six.PY2:
                 k = self.key
+            else:
+                k = bytes(self.key, 'ascii')
 
             hasher = hmac.new(k, digestmod=hashlib.sha256)
             hasher.update(six.text_type(self._request_id).encode('utf-8'))
