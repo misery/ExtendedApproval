@@ -646,7 +646,8 @@ class MercurialReviewRequest(BaseReviewRequest):
         - A commit to close a branch: "hg commit --close-branch"
         """
         differ = MercurialDiffer(self.root, self.request.id)
-        self.diff_info = differ.diff(self.node() + '^1',
+        parent = MercurialRevision.normalize(self.node() + '^1')
+        self.diff_info = differ.diff(parent,
                                      self.node(),
                                      self.base)
 
@@ -774,6 +775,10 @@ class MercurialRevision(BaseRevision):
         for entry in json.loads(changes):
             result.append(MercurialRevision(entry))
         return result
+
+    @staticmethod
+    def normalize(node):
+        return execute(['hg', 'log', '-r', node, '-T {node}'])
 
     def __init__(self, json):
         super(MercurialRevision, self).__init__()
@@ -1211,7 +1216,7 @@ def main(stdin=None):
             logger.debug('Mercurial detected...')
             h = MercurialHook(partial(logger.info))
             node = os.environ.get('HG_NODE')
-            base = node + '^1'
+            base = MercurialRevision.normalize(node + '^1')
             sys.exit(h.push_to_reviewboard(node, base))
         else:
             logger.debug('Git detected...')
