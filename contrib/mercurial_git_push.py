@@ -722,6 +722,8 @@ class BaseRevision(object):
     def summary(self):
         if self._summary is None:
             self._summary = self.desc().splitlines()[0].strip()
+            if len(self._summary) > 150:
+                self._summary = self._summary[0:150] + ' ...'
         return self._summary
 
     def info(self):
