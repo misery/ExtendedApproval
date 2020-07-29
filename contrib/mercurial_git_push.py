@@ -113,6 +113,7 @@ import json
 import os
 import re
 import six
+import sys
 from functools import partial
 
 from rbtools import __version__ as rbversion
@@ -1203,8 +1204,31 @@ class GitHook(BaseHook):
         self.log('git push origin %s:master', node)
 
 
+def process_mercurial_hook(stdin, log):
+    h = MercurialHook(log)
+    node = os.environ.get('HG_NODE')
+    base = MercurialRevision.normalize(node + '^1')
+    sys.exit(h.push_to_reviewboard(node, base))
+
+
+def process_git_hook(stdin, log):
+    if stdin is None:
+        lines = sys.stdin.readlines()
+    elif isinstance(stdin, list):
+        lines = stdin
+    else:
+        lines = stdin.splitlines()
+
+    if len(lines) > 1:
+        log('Push of multiple branches not supported')
+        sys.exit(1)
+
+    h = GitHook(log)
+    (base, node, ref) = lines[0].split()
+    sys.exit(h.push_to_reviewboard(node, base))
+
+
 def main(stdin=None):
-    import sys
     import logging
 
     logging.basicConfig(format='%(levelname)s: %(message)s',
@@ -1212,28 +1236,13 @@ def main(stdin=None):
     logger = logging.getLogger('reviewboardhook')
 
     try:
+        log = partial(logger.info)
         if 'HG_NODE' in os.environ:
             logger.debug('Mercurial detected...')
-            h = MercurialHook(partial(logger.info))
-            node = os.environ.get('HG_NODE')
-            base = MercurialRevision.normalize(node + '^1')
-            sys.exit(h.push_to_reviewboard(node, base))
+            process_mercurial_hook(stdin, log)
         else:
             logger.debug('Git detected...')
-            if stdin is None:
-                lines = sys.stdin.readlines()
-            elif isinstance(stdin, list):
-                lines = stdin
-            else:
-                lines = stdin.splitlines()
-
-            if len(lines) > 1:
-                logger.info('Push of multiple branches not supported')
-                sys.exit(1)
-
-            h = GitHook(partial(logger.info))
-            (base, node, ref) = lines[0].split()
-            sys.exit(h.push_to_reviewboard(node, base))
+            process_git_hook(stdin, log)
 
     except Exception as e:
         if logger.getEffectiveLevel() == logging.DEBUG:
