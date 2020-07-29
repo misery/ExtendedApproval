@@ -882,7 +882,7 @@ class GitRevision(BaseRevision):
     def __init__(self, hashnode, refs):
         super(GitRevision, self).__init__()
         self._hash = hashnode
-        self._refs = refs
+        self._refs = refs.replace('refs/heads/', '') if refs else None
         self._merges = None
         self._diffstat = None
 
