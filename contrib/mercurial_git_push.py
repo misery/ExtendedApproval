@@ -412,16 +412,19 @@ class BaseReviewRequest(object):
                 self._modified_description() or not
                 self._diff_up_to_date())
 
-    def close(self, hgweb=None):
+    def close(self, web=None):
         """Close the given review request with a message."""
         rev = self.node()
-        if hgweb is not None:
-            rev = '[{0}]({1}/rev/{0})'.format(rev, hgweb)
+        text_type = 'plain'
+        if web is not None:
+            text_type = 'markdown'
+            web = web.format(rev)
+            rev = '[{0}]({1})'.format(rev, web)
 
         msg = 'Automatically closed by a push (hook): %s' % rev
         self.request.update(status='submitted',
                             close_description=msg,
-                            close_description_text_type='markdown')
+                            close_description_text_type=text_type)
 
     def sync(self):
         """Synchronize review request on review board."""
@@ -935,7 +938,7 @@ class BaseHook(object):
         self.repo_name = None
         self.repo_id = None
         self.root = None
-        self.hgweb = None
+        self.web = None
         self.name = name
         self.review_request_class = review_request_class
 
@@ -985,10 +988,7 @@ class BaseHook(object):
 
         r = repos[0]
         self.repo_id = r.id
-        for path in [r.path, r.mirror_path]:
-            if path.startswith('http'):
-                self.hgweb = path.rstrip('/')
-                break
+        return r
 
     def _set_root(self):
         """Set API root object."""
@@ -1085,7 +1085,7 @@ class BaseHook(object):
         if idx is None:
             for r in revreqs:
                 self.log('Closing review request: %s', r.id())
-                r.close(self.hgweb)
+                r.close(self.web)
             return 0
         elif idx > 0:
             self._log_push_info(revreqs[idx - 1].node())
@@ -1169,6 +1169,13 @@ class MercurialHook(BaseHook):
             The list of MercurialRevision.
         """
         return MercurialRevision.fetch(node + ':')
+
+    def _set_repo_id(self):
+        r = super(MercurialHook, self)._set_repo_id()
+        for path in [r.path, r.mirror_path]:
+            if path.startswith('http'):
+                self.web = path.rstrip('/') + '/rev/{0}'
+                break
 
     def _log_push_info(self, node):
         super(MercurialHook, self)._log_push_info(node)
