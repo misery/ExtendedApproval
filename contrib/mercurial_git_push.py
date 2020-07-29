@@ -250,7 +250,7 @@ class BaseDiffer(object):
             hasher.update(six.text_type(diffset_id).encode('utf-8'))
             for line in self._diff.splitlines():
                 if (len(line) > 0 and not line.startswith(b'diff') and not
-                   line.startswith(b'@@')):
+                   line.startswith(b'@@')) and not line.startswith(b'#'):
                     hasher.update(line)
 
             h = hasher.hexdigest()
