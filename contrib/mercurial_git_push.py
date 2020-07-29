@@ -557,7 +557,7 @@ class BaseReviewRequest(object):
         regex = (r'\([0-9]{4}-[0-9]{2}-[0-9]{2} '
                  r'[0-9]{2}:[0-9]{2}:[0-9]{2}'
                  r'[\s]{0,1}[+-][0-9]{2}[:]{0,1}[0-9]{2}\) '
-                 r'\[[0-9|a-z]+\]')
+                 r'\[[0-9|a-z|/]+\]')
         regex = re.compile(regex)
 
         old = self.request.description
