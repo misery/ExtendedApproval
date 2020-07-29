@@ -862,7 +862,7 @@ class MercurialRevision(BaseRevision):
 class GitRevision(BaseRevision):
     """Class to represent information of changeset."""
     @staticmethod
-    def fetch(node, base, refs):
+    def fetch(node, base, refs=None, skipKnown=True):
         if base == '0000000000000000000000000000000000000000':
             rev = node
         else:
@@ -872,9 +872,10 @@ class GitRevision(BaseRevision):
 
         result = []
         for entry in changes:
-            known = execute(['git', 'branch', '--contains', entry])
-            if len(known) > 0:
-                continue
+            if skipKnown:
+                known = execute(['git', 'branch', '--contains', entry])
+                if len(known) > 0:
+                    continue
             result.append(GitRevision(entry, refs))
         return result
 
@@ -890,7 +891,7 @@ class GitRevision(BaseRevision):
         data = data.split('#', 4)
         self._user = data[0]
         self._date = data[1]
-        self._parent = data[2]
+        self._parent = data[2].split()
         self._desc = data[3]
 
     def parent(self):
@@ -926,7 +927,14 @@ class GitRevision(BaseRevision):
         If this is a merge changeset we can fetch
         all changesets that will be merged.
         """
-        return None
+        if self._merges is None and len(self._parent) > 1:
+            self._merges = GitRevision.fetch(self._hash,
+                                             self._parent[0],
+                                             skipKnown=False)
+            self._merges.pop()  # remove merge commit itself
+            self._merges.reverse()  # use correct order
+
+        return self._merges
 
 
 class BaseHook(object):
@@ -1041,9 +1049,11 @@ class BaseHook(object):
             0 on success, otherwise non-zero.
         """
         changesets = self._list_of_incoming(node, base)
-        revreqs = []
         self.log('Processing %d changeset(s)...', len(changesets))
+        return self._handle_changeset_list_process(node, base, changesets)
 
+    def _handle_changeset_list_process(self, node, base, changesets):
+        revreqs = []
         for changeset in changesets:
             request = self.review_request_class(self.root,
                                                 self.repo_id,
@@ -1196,6 +1206,18 @@ class GitHook(BaseHook):
                     self.repo_name = self.repo_name[:-5]
             else:
                 self.repo_name = os.environ.get('GIT_DIR')
+
+    def _handle_changeset_list_process(self, node, base, changesets):
+        if len(changesets) > 1:
+            for rev in changesets:
+                if len(rev.parent()) > 1:
+                    self.log('Merge cannot be pushed with other commits: %s',
+                             rev.node())
+                    return 1
+
+        return super(GitHook, self)._handle_changeset_list_process(node,
+                                                                   base,
+                                                                   changesets)
 
     def _list_of_incoming(self, node, base):
         """Return a list of all changesets after (and including) node.
