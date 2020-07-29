@@ -859,7 +859,7 @@ class MercurialRevision(BaseRevision):
 class GitRevision(BaseRevision):
     """Class to represent information of changeset."""
     @staticmethod
-    def fetch(node, base):
+    def fetch(node, base, refs):
         if base == '0000000000000000000000000000000000000000':
             rev = node
         else:
@@ -872,12 +872,13 @@ class GitRevision(BaseRevision):
             known = execute(['git', 'branch', '--contains', entry])
             if len(known) > 0:
                 continue
-            result.append(GitRevision(entry))
+            result.append(GitRevision(entry, refs))
         return result
 
-    def __init__(self, hashnode):
+    def __init__(self, hashnode, refs):
         super(GitRevision, self).__init__()
         self._hash = hashnode
+        self._refs = refs
         self._merges = None
         self._diffstat = None
 
@@ -896,7 +897,7 @@ class GitRevision(BaseRevision):
         return self._hash[:12] if short else self._hash
 
     def branch(self):
-        return 'unknown'
+        return self._refs
 
     def author(self):
         return self._user
@@ -1177,8 +1178,9 @@ class MercurialHook(BaseHook):
 class GitHook(BaseHook):
     """Class to represent a hook for Git repositories."""
 
-    def __init__(self, log, repo=None):
+    def __init__(self, log, refs, repo=None):
         super(GitHook, self).__init__(log, 'Git', GitReviewRequest)
+        self.refs = refs
 
         if self.repo_name is None:
             if os.environ.get('GIT_DIR') == '.':
@@ -1197,7 +1199,7 @@ class GitHook(BaseHook):
             list of object:
             The list of GitRevision.
         """
-        return GitRevision.fetch(node, base)
+        return GitRevision.fetch(node, base, self.refs)
 
     def _log_push_info(self, node):
         super(GitHook, self)._log_push_info(node)
@@ -1223,8 +1225,8 @@ def process_git_hook(stdin, log):
         log('Push of multiple branches not supported')
         sys.exit(1)
 
-    h = GitHook(log)
     (base, node, ref) = lines[0].split()
+    h = GitHook(log, ref)
     sys.exit(h.push_to_reviewboard(node, base))
 
 
