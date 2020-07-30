@@ -1011,7 +1011,13 @@ class BaseHook(object):
             raise e
 
         self.log('Review Board: %s', server_url)
-        api_client, self.root = cmd.get_api(server_url)
+
+        try:
+            api_client, self.root = cmd.get_api(server_url)
+        except Exception as e:
+            self.log('Cannot fetch data from RB. Is ALLOWED_HOST correct?')
+            raise e
+
         session = get_authenticated_session(api_client, self.root,
                                             auth_required=True, num_retries=0)
         if session is None or not session.authenticated:
