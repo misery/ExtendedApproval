@@ -120,6 +120,7 @@ from rbtools.clients.git import GitClient
 from rbtools.clients.mercurial import MercurialClient
 from rbtools.commands import Command
 from rbtools.hooks.common import HookError
+from rbtools.utils.filesystem import is_exe_in_path
 from rbtools.utils.process import execute
 from rbtools.utils.users import get_authenticated_session
 
@@ -137,6 +138,8 @@ new file mode 100644
 %s
 +------------------------------------------------------------
 '''
+
+HG = 'hg'
 
 
 def get_ticket_refs(text, prefixes=None):
@@ -292,7 +295,10 @@ class BaseDiffer(object):
 class MercurialDiffer(BaseDiffer):
     def __init__(self, root, request_id):
         super(MercurialDiffer, self).__init__(root, request_id)
-        self.tool = MercurialClient()
+        if rbversion >= '1.0.4':
+            self.tool = MercurialClient(HG)
+        else:
+            self.tool = MercurialClient()
         cmd = Command()
         self.tool.capabilities = cmd.get_capabilities(api_root=root)
 
@@ -663,7 +669,7 @@ class MercurialReviewRequest(BaseReviewRequest):
                      'date:        {localdate(date, "UTC")|date}\n' \
                      'extra:       {join(extras, "\n             ")}\n' \
                      'description:\n{desc}\n'
-            cmd = ['hg', 'log', '-T', detail, '-r', self.node()]
+            cmd = [HG, 'log', '-T', detail, '-r', self.node()]
             raw_data = execute(cmd,
                                results_unicode=False).strip().splitlines()
             content = []
@@ -772,7 +778,7 @@ class MercurialRevision(BaseRevision):
     """Class to represent information of changeset."""
     @staticmethod
     def fetch(revset):
-        changes = execute(['hg', 'log', '-r', revset,
+        changes = execute([HG, 'log', '-r', revset,
                            '--template', 'json'])
         result = []
         for entry in json.loads(changes):
@@ -781,7 +787,7 @@ class MercurialRevision(BaseRevision):
 
     @staticmethod
     def normalize(node):
-        return execute(['hg', 'log', '-r', node, '-T {node}'])
+        return execute([HG, 'log', '-r', node, '-T {node}'])
 
     def __init__(self, json):
         super(MercurialRevision, self).__init__()
@@ -823,7 +829,7 @@ class MercurialRevision(BaseRevision):
     def diffstat(self):
         if self._diffstat is None:
             self._diffstat = {}
-            o = execute(['hg', 'diff', '-g',
+            o = execute([HG, 'diff', '-g',
                          '--stat', '-c', self.node()]).splitlines()
             del o[-1]  # useless summary line
             for entry in o:
@@ -833,11 +839,11 @@ class MercurialRevision(BaseRevision):
         return self._diffstat
 
     def files(self, template='{files|json}'):
-        return json.loads(execute(['hg', 'log', '-r', self.node(),
+        return json.loads(execute([HG, 'log', '-r', self.node(),
                                    '--template', template]))
 
     def file(self, filename):
-        return execute(['hg', 'cat', '-r', self.node(), filename],
+        return execute([HG, 'cat', '-r', self.node(), filename],
                        with_errors=False,
                        results_unicode=False)
 
@@ -1241,6 +1247,11 @@ class GitHook(BaseHook):
 
 
 def process_mercurial_hook(stdin, log):
+    CHG = 'chg'
+    if is_exe_in_path(CHG):
+        global HG
+        HG = CHG
+
     h = MercurialHook(log)
     node = os.environ.get('HG_NODE')
     base = MercurialRevision.normalize(node + '^1')
