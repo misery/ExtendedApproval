@@ -113,7 +113,6 @@ import json
 import os
 import re
 import six
-import sys
 from functools import partial
 
 from rbtools import __version__ as rbversion
@@ -1245,7 +1244,7 @@ def process_mercurial_hook(stdin, log):
     h = MercurialHook(log)
     node = os.environ.get('HG_NODE')
     base = MercurialRevision.normalize(node + '^1')
-    sys.exit(h.push_to_reviewboard(node, base))
+    return h.push_to_reviewboard(node, base)
 
 
 def process_git_hook(stdin, log):
@@ -1258,11 +1257,11 @@ def process_git_hook(stdin, log):
 
     if len(lines) > 1:
         log('Push of multiple branches not supported')
-        sys.exit(1)
+        return 1
 
     (base, node, ref) = lines[0].split()
     h = GitHook(log, ref)
-    sys.exit(h.push_to_reviewboard(node, base))
+    return h.push_to_reviewboard(node, base)
 
 
 def main(stdin=None):
@@ -1276,10 +1275,10 @@ def main(stdin=None):
         log = partial(logger.info)
         if 'HG_NODE' in os.environ:
             logger.debug('Mercurial detected...')
-            process_mercurial_hook(stdin, log)
+            return process_mercurial_hook(stdin, log)
         else:
             logger.debug('Git detected...')
-            process_git_hook(stdin, log)
+            return process_git_hook(stdin, log)
 
     except Exception as e:
         if logger.getEffectiveLevel() == logging.DEBUG:
@@ -1288,8 +1287,9 @@ def main(stdin=None):
             for line in six.text_type(e).split('\n'):
                 logger.error(line)
 
-    sys.exit(-1)
+    return -1
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    sys.exit(main())
