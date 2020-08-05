@@ -367,6 +367,10 @@ class BaseReviewRequest(object):
         """
         return None if self.request is None else self.request.id
 
+    def parent(self):
+        """Return changeset as hex node."""
+        return self._changeset.parent()
+
     def node(self, short=True):
         """Return changeset as hex node."""
         return self._changeset.node(short)
@@ -655,8 +659,7 @@ class MercurialReviewRequest(BaseReviewRequest):
         - A commit to close a branch: "hg commit --close-branch"
         """
         differ = MercurialDiffer(self.root, self.request.id)
-        parent = MercurialRevision.normalize(self.node() + '^1')
-        self.diff_info = differ.diff(parent,
+        self.diff_info = differ.diff(self.parent(),
                                      self.node(),
                                      self.base)
 
@@ -795,6 +798,10 @@ class MercurialRevision(BaseRevision):
         self._date = None
         self._merges = None
         self._diffstat = None
+
+    def parent(self, short=False):
+        p = self.json['parents'][0]
+        return p[:12] if short else p
 
     def node(self, short=True):
         n = self.json['node']
