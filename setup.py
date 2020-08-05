@@ -1,10 +1,8 @@
-from __future__ import unicode_literals
-
 from reviewboard.extensions.packaging import setup
 
 
 PACKAGE = "rbExtendedApproval"
-VERSION = "0.7.3"
+VERSION = "1.0.0"
 
 setup(
     name=PACKAGE,
@@ -22,7 +20,7 @@ setup(
             '%s = extended_approval.extension:ExtendedApproval' % PACKAGE,
     },
     package_data={
-        b'extended_approval': [
+        'extended_approval': [
             'templates/extended_approval/*.txt',
             'templates/extended_approval/*.html',
         ],
