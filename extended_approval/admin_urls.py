@@ -1,18 +1,15 @@
-from __future__ import unicode_literals
+"""Admin URLs for the extension."""
 
-from django.conf.urls import patterns, url
+from django.conf.urls import url
+from reviewboard.extensions.views import configure_extension
 
 from extended_approval.extension import ExtendedApproval
 from extended_approval.forms import ExtendedApprovalSettingsForm
 
-urlpatterns = patterns(
-    '',
 
-    url(r'^$',
-        'reviewboard.extensions.views.configure_extension',
-        {
-            'ext_class': ExtendedApproval,
-            'form_class': ExtendedApprovalSettingsForm,
-        },
-        name='extended_approval-configure'),
-)
+urlpatterns = [
+    url(r'^$', configure_extension, {
+        'ext_class': ExtendedApproval,
+        'form_class': ExtendedApprovalSettingsForm,
+    }, name='extended_approval-configure'),
+]
