@@ -970,6 +970,9 @@ class BaseHook(object):
             self.repo_name = \
                 e['HEPTAPOD_PROJECT_NAMESPACE_FULL_PATH'] + '/' + \
                 e['HEPTAPOD_PROJECT_PATH']
+        elif 'GL_USERNAME' in e and 'GL_PROJECT_PATH' in e:
+            self.submitter = e['GL_USERNAME']
+            self.repo_name = e['GL_PROJECT_PATH']
         elif 'REPO_NAME' in e and 'REMOTE_USER' in e:
             self.submitter = e['REMOTE_USER']
             self.repo_name = e['REPO_NAME']
