@@ -650,16 +650,40 @@ class MercurialReviewRequest(BaseReviewRequest):
                                                      base,
                                                      submitter)
 
+        self._raw_data = None
+        self._raw_data_map = None
+
+    def _get_raw_data_map(self):
+        if self._raw_data_map is None:
+            content = {}
+            extra = {}
+            for line in self._get_raw_data():
+                (name, value) = line.split(b':', 1)
+                if name == b'extra':
+                    (extra_name, extra_value) = value.split(b'=', 1)
+                    extra[extra_name.strip()] = extra_value.strip()
+                    content[name] = extra
+                else:
+                    content[name] = value.strip()
+
+            self._raw_data_map = content
+
+        return self._raw_data_map
+
     def _get_raw_data(self):
-        detail = 'changeset:   {node}\n' \
-                 'branch:      {branch}\n' \
-                 'parent:      {p1node}\n' \
-                 'parent:      {p2node}\n' \
-                 'user:        {author}\n' \
-                 'date:        {localdate(date, "UTC")|date}\n' \
-                 'extra:       {join(extras, "\n             ")}\n'
-        cmd = [HG, 'log', '-T', detail, '-r', self.node()]
-        return execute(cmd, results_unicode=False).strip().splitlines()
+        if self._raw_data is None:
+            detail = 'changeset: {node}\n' \
+                     'branch:    {branch}\n' \
+                     'parent:    {p1node}\n' \
+                     'parent:    {p2node}\n' \
+                     'user:      {author}\n' \
+                     'date:      {localdate(date, "UTC")|date}\n' \
+                     'extra:     {join(extras, "\nextra:     ")}\n'
+            cmd = [HG, 'log', '-T', detail, '-r', self.node()]
+            content = execute(cmd, results_unicode=False)
+            self._raw_data = content.strip().splitlines()
+
+        return self._raw_data
 
     def _generate_diff_info(self):
         """Generate the diff if it has been changed.
