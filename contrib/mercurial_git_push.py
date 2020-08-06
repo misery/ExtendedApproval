@@ -196,10 +196,13 @@ class BaseDiffer(object):
             self._base_commit_id = base_commit_id
             self.setDiff(diff)
 
-            if parent_diff is None or len(parent_diff) == 0:
+            if self._is_diff_empty(parent_diff):
                 self._parent_diff = None
             else:
                 self._parent_diff = parent_diff
+
+        def _is_diff_empty(self, diff):
+            return diff is None or len(diff) == 0
 
         def getDiff(self):
             return self._diff
@@ -207,7 +210,7 @@ class BaseDiffer(object):
         def setDiff(self, diff):
             self._hashes = {}
             self._parent_diff = None
-            if diff is None or len(diff) == 0:
+            if self._is_diff_empty(diff):
                 self._diff = None
             else:
                 self._diff = diff
