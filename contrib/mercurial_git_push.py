@@ -754,11 +754,14 @@ class BaseRevision(object):
 
     def info(self):
         if self._info is None:
-            template = '{author} ({date}) [{node}] [{branch}]:\n{desc}'
+            template = ('{author} ({date}) [{node}] '
+                        '[{branch}] [graft: {graft}]:\n{desc}')
+
             self._info = template.format(author=self.author(),
                                          date=self.date(),
                                          node=self.node(),
                                          branch=self.branch(),
+                                         graft=self.graft(),
                                          desc=self.desc())
             merges = self.merges()
             if merges:
