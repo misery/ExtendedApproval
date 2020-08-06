@@ -367,6 +367,10 @@ class BaseReviewRequest(object):
         """
         return None if self.request is None else self.request.id
 
+    def graft(self, short=True):
+        """Return changeset as hex node."""
+        return self._changeset.graft(short)
+
     def parent(self):
         """Return changeset as hex node."""
         return self._changeset.parent()
@@ -655,63 +659,16 @@ class BaseReviewRequest(object):
 
 class MercurialReviewRequest(BaseReviewRequest):
     def __init__(self, root, repo, changeset, base, submitter):
-        self._raw_data = None
-        self._raw_data_map = None
-        self._graft_source = None
-
         super(MercurialReviewRequest, self).__init__(root,
                                                      repo,
                                                      changeset,
                                                      base,
                                                      submitter)
 
-    def _get_graft_source(self):
-        if self._graft_source is None:
-            self._graft_source = ''
-
-            data = self._get_raw_data_map()
-            if b'extra' in data:
-                if b'source' in data[b'extra']:
-                    self._graft_source = data[b'extra'][b'source']
-
-        return self._graft_source
-
-    def _get_raw_data_map(self):
-        if self._raw_data_map is None:
-            content = {}
-            extra = {}
-            for line in self._get_raw_data():
-                (name, value) = line.split(b':', 1)
-                if name == b'extra':
-                    (extra_name, extra_value) = value.split(b'=', 1)
-                    extra[extra_name.strip()] = extra_value.strip()
-                    content[name] = extra
-                else:
-                    content[name] = value.strip()
-
-            self._raw_data_map = content
-
-        return self._raw_data_map
-
-    def _get_raw_data(self):
-        if self._raw_data is None:
-            detail = 'changeset: {node}\n' \
-                     'branch:    {branch}\n' \
-                     'parent:    {p1node}\n' \
-                     'parent:    {p2node}\n' \
-                     'user:      {author}\n' \
-                     'date:      {localdate(date, "UTC")|date}\n' \
-                     'extra:     {join(extras, "\nextra:     ")}\n'
-            cmd = [HG, 'log', '-T', detail, '-r', self.node()]
-            content = execute(cmd, results_unicode=False)
-            self._raw_data = content.strip().splitlines()
-
-        return self._raw_data
-
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
 
-        graft = self._get_graft_source()
+        graft = self.graft(False)
         if len(graft) > 0:
             content.append(graft)
 
@@ -732,7 +689,7 @@ class MercurialReviewRequest(BaseReviewRequest):
 
         if self.diff_info.getDiff() is None:
             content = []
-            for data in self._get_raw_data():
+            for data in self._changeset.raw_data():
                 content.append(b'+%s' % data)
 
             fake_diff = FAKE_DIFF_TEMPL % (len(content) + 5,
@@ -854,6 +811,20 @@ class MercurialRevision(BaseRevision):
         self._date = None
         self._merges = None
         self._diffstat = None
+        self._graft_source = None
+        self._raw_data = None
+        self._raw_data_map = None
+
+    def graft(self, short=True):
+        if self._graft_source is None:
+            self._graft_source = ''
+
+            data = self._get_raw_data_map()
+            if b'extra' in data:
+                if b'source' in data[b'extra']:
+                    self._graft_source = data[b'extra'][b'source']
+
+        return self._graft_source[:12] if short else self._graft_source
 
     def parent(self, short=False):
         p = self.json['parents'][0]
@@ -925,6 +896,38 @@ class MercurialRevision(BaseRevision):
             self._merges = MercurialRevision.fetch(revset)
 
         return self._merges
+
+    def _get_raw_data_map(self):
+        if self._raw_data_map is None:
+            content = {}
+            extra = {}
+            for line in self.raw_data():
+                (name, value) = line.split(b':', 1)
+                if name == b'extra':
+                    (extra_name, extra_value) = value.split(b'=', 1)
+                    extra[extra_name.strip()] = extra_value.strip()
+                    content[name] = extra
+                else:
+                    content[name] = value.strip()
+
+            self._raw_data_map = content
+
+        return self._raw_data_map
+
+    def raw_data(self):
+        if self._raw_data is None:
+            detail = 'changeset: {node}\n' \
+                     'branch:    {branch}\n' \
+                     'parent:    {p1node}\n' \
+                     'parent:    {p2node}\n' \
+                     'user:      {author}\n' \
+                     'date:      {localdate(date, "UTC")|date}\n' \
+                     'extra:     {join(extras, "\nextra:     ")}\n'
+            cmd = [HG, 'log', '-T', detail, '-r', self.node()]
+            content = execute(cmd, results_unicode=False)
+            self._raw_data = content.strip().splitlines()
+
+        return self._raw_data
 
 
 class GitRevision(BaseRevision):
