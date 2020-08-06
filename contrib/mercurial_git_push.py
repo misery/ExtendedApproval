@@ -299,7 +299,7 @@ class MercurialDiffer(BaseDiffer):
     def __init__(self, root, request_id):
         super(MercurialDiffer, self).__init__(root, request_id)
         if rbversion >= '1.0.4':
-            self.tool = MercurialClient(HG)
+            self.tool = MercurialClient()
         else:
             self.tool = MercurialClient()
         cmd = Command()
@@ -517,21 +517,59 @@ class BaseReviewRequest(object):
 
         return json.dumps(hashes)
 
+    def _update_with_history(self, d, diffs):
+        if rbversion >= '2.0':
+            diff = diffs.create_empty(base_commit_id=d.getBaseCommitId())
+        else:
+            diff = diffs.create()
+
+        cc = diff.get_draft_commits()
+        v = self.root.get_validation().get_commit_validation()
+        v = v.validate_commit(repository=self.repo,
+                              diff=d.getDiff(),
+                              commit_id=self.node(),
+                              parent_id=self.parent(),
+                              parent_diff=d.getParentDiff(),
+                              base_commit_id=d.getBaseCommitId())
+        print('upload...... %s' % v )
+        v = v.validation_info
+        cr = cc.upload_commit(author_date='2018-11-08 23:56:22+01:00',
+                       author_email='sdf@sf.de',
+                       author_name='My Name',
+                       commit_id=self.node(),
+                       commit_message=self.summary(),
+                       parent_id=self.parent(),
+                       validation_info=None,
+                       parent_diff=d.getParentDiff(),
+                       diff=d.getDiff())
+                       
+                       #,
+                       #committer_name='My Name',
+                       #committer_email='sdf@sf.de',
+                       #committer_date='2018-11-08 23:56:22+01:00'
+        diff.finalize_commit_series(cumulative_diff=d.getDiff(), validation_info=v, parent_diff=d.getParentDiff())
+      
+
     def _update(self):
         """Update review request draft based on changeset."""
         self.approved = False
         extra_data = None
-        draft = self.request.get_or_create_draft(only_fields='',
-                                                 only_links='update,'
-                                                            'draft_diffs')
-
+        draft = self.request.get_or_create_draft()#only_fields='',
+                                                 #only_links='update,'
+                                                  #          'draft_diffs,'
+                                                   #         'upload_commit,'
+                                                    #        'draft_commits')
+        print(draft)
         if not self._diff_up_to_date():
-            diffs = draft.get_draft_diffs(only_links='upload_diff',
-                                          only_fields='')
+            diffs = draft.get_draft_diffs()#only_links='upload_diff',
+                                          #only_fields='')
             d = self.diff_info
-            diffs.upload_diff(diff=d.getDiff(),
-                              parent_diff=d.getParentDiff(),
-                              base_commit_id=d.getBaseCommitId())
+            if False:
+                diffs.upload_diff(diff=d.getDiff(),
+                                  parent_diff=d.getParentDiff(),
+                                  base_commit_id=d.getBaseCommitId())
+            else:
+                self._update_with_history(d, diffs)
 
             # re-fetch diffset to get id
             diff = draft.get_draft_diffs(only_links='', only_fields='id')
@@ -567,6 +605,7 @@ class BaseReviewRequest(object):
                                           only_links='create')
         return c.create(commit_id=self.commit_id,
                         repository=self.repo,
+                        create_with_history=True,
                         submit_as=self.submitter)
 
     def _modified_description(self):
@@ -1367,7 +1406,7 @@ def main(stdin=None):
     import logging
 
     logging.basicConfig(format='%(levelname)s: %(message)s',
-                        level=logging.INFO)
+                        level=logging.DEBUG)
     logger = logging.getLogger('reviewboardhook')
 
     try:
