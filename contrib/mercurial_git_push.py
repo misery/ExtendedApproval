@@ -669,7 +669,7 @@ class MercurialReviewRequest(BaseReviewRequest):
         content = super(MercurialReviewRequest, self)._commit_id_data()
 
         graft = self.graft(False)
-        if len(graft) > 0:
+        if graft:
             content.append(graft)
 
         return content
@@ -824,7 +824,10 @@ class MercurialRevision(BaseRevision):
                 if b'source' in data[b'extra']:
                     self._graft_source = data[b'extra'][b'source']
 
-        return self._graft_source[:12] if short else self._graft_source
+        if len(self._graft_source) > 0:
+            return self._graft_source[:12] if short else self._graft_source
+
+        return None
 
     def parent(self, short=False):
         p = self.json['parents'][0]
