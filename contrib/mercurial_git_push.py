@@ -650,6 +650,17 @@ class MercurialReviewRequest(BaseReviewRequest):
                                                      base,
                                                      submitter)
 
+    def _get_raw_data(self):
+        detail = 'changeset:   {node}\n' \
+                 'branch:      {branch}\n' \
+                 'parent:      {p1node}\n' \
+                 'parent:      {p2node}\n' \
+                 'user:        {author}\n' \
+                 'date:        {localdate(date, "UTC")|date}\n' \
+                 'extra:       {join(extras, "\n             ")}\n'
+        cmd = [HG, 'log', '-T', detail, '-r', self.node()]
+        return execute(cmd, results_unicode=False).strip().splitlines()
+
     def _generate_diff_info(self):
         """Generate the diff if it has been changed.
 
@@ -664,22 +675,11 @@ class MercurialReviewRequest(BaseReviewRequest):
                                      self.base)
 
         if self.diff_info.getDiff() is None:
-            detail = 'changeset:   {node}\n' \
-                     'branch:      {branch}\n' \
-                     'parent:      {p1node}\n' \
-                     'parent:      {p2node}\n' \
-                     'user:        {author}\n' \
-                     'date:        {localdate(date, "UTC")|date}\n' \
-                     'extra:       {join(extras, "\n             ")}\n' \
-                     'description:\n{desc}\n'
-            cmd = [HG, 'log', '-T', detail, '-r', self.node()]
-            raw_data = execute(cmd,
-                               results_unicode=False).strip().splitlines()
             content = []
-            for data in raw_data:
+            for data in self._get_raw_data():
                 content.append(b'+%s' % data)
 
-            fake_diff = FAKE_DIFF_TEMPL % (len(raw_data) + 5,
+            fake_diff = FAKE_DIFF_TEMPL % (len(content) + 5,
                                            b'\n'.join(content))
             self.diff_info.setDiff(fake_diff)
 
