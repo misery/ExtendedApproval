@@ -576,6 +576,22 @@ class BaseReviewRequest(object):
         new = self._info()
         return regex.sub('', old, 1) != regex.sub('', new, 1)
 
+    def _commit_id_data(self):
+        content = []
+
+        content.append(self._changeset.author().encode('utf-8'))
+        content.append(self._changeset.date().encode('utf-8'))
+        content.append(six.text_type(self.repo).encode('utf-8'))
+
+        s = self.summary()
+        if (s.startswith('[maven-release-plugin]') or
+                s.startswith('Added tag ') or
+                s.startswith('Moved tag ') or
+                s.startswith('Removed tag ')):
+            content.append(s)
+
+        return content
+
     def _generate_commit_id(self):
         """Return a commit id of the changeset.
 
@@ -584,15 +600,10 @@ class BaseReviewRequest(object):
             A generated commit id of changeset.
         """
         hasher = hashlib.md5()
-        hasher.update(self._changeset.author().encode('utf-8'))
-        hasher.update(self._changeset.date().encode('utf-8'))
-        hasher.update(six.text_type(self.repo).encode('utf-8'))
-        s = self.summary()
-        if (s.startswith('[maven-release-plugin]') or
-                s.startswith('Added tag ') or
-                s.startswith('Moved tag ') or
-                s.startswith('Removed tag ')):
-            hasher.update(s)
+
+        for line in self._commit_id_data():
+            hasher.update(line)
+
         return hasher.hexdigest()
 
     def _get_request(self):
@@ -644,14 +655,26 @@ class BaseReviewRequest(object):
 
 class MercurialReviewRequest(BaseReviewRequest):
     def __init__(self, root, repo, changeset, base, submitter):
+        self._raw_data = None
+        self._raw_data_map = None
+        self._graft_source = None
+
         super(MercurialReviewRequest, self).__init__(root,
                                                      repo,
                                                      changeset,
                                                      base,
                                                      submitter)
 
-        self._raw_data = None
-        self._raw_data_map = None
+    def _get_graft_source(self):
+        if self._graft_source is None:
+            self._graft_source = ''
+
+            data = self._get_raw_data_map()
+            if b'extra' in data:
+                if b'source' in data[b'extra']:
+                    self._graft_source = data[b'extra'][b'source']
+
+        return self._graft_source
 
     def _get_raw_data_map(self):
         if self._raw_data_map is None:
@@ -684,6 +707,15 @@ class MercurialReviewRequest(BaseReviewRequest):
             self._raw_data = content.strip().splitlines()
 
         return self._raw_data
+
+    def _commit_id_data(self):
+        content = super(MercurialReviewRequest, self)._commit_id_data()
+
+        graft = self._get_graft_source()
+        if len(graft) > 0:
+            content.append(graft)
+
+        return content
 
     def _generate_diff_info(self):
         """Generate the diff if it has been changed.
