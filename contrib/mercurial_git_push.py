@@ -974,6 +974,9 @@ class GitRevision(BaseRevision):
         self._parent = data[2].split()
         self._desc = data[3]
 
+    def graft(self):
+        return None
+
     def parent(self):
         return self._parent
 
