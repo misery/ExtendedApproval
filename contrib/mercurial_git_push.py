@@ -1331,6 +1331,7 @@ def process_mercurial_hook(stdin, log):
     CHG = 'chg'
     if is_exe_in_path(CHG):
         global HG
+        os.environ['CHGHG'] = HG
         HG = CHG
 
     h = MercurialHook(log)
