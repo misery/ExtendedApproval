@@ -687,7 +687,7 @@ class MercurialReviewRequest(BaseReviewRequest):
         """
         differ = MercurialDiffer(self.root, self.request.id)
         self.diff_info = differ.diff(self.parent(),
-                                     self.node(),
+                                     self.node(False),
                                      self.base)
 
         if self.diff_info.getDiff() is None:
