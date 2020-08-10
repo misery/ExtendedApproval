@@ -1030,6 +1030,7 @@ class BaseHook(object):
         self.repo_id = None
         self.root = None
         self.web = None
+        self.base = None
         self.name = name
         self.review_request_class = review_request_class
 
@@ -1129,7 +1130,7 @@ class BaseHook(object):
             for r in revreqs
         )
 
-    def _handle_changeset_list(self, node, base=None):
+    def _handle_changeset_list(self, node):
         """Process all incoming changesets.
 
         Args:
@@ -1140,17 +1141,23 @@ class BaseHook(object):
             int:
             0 on success, otherwise non-zero.
         """
-        changesets = self._list_of_incoming(node, base)
+        changesets = self._list_of_incoming(node)
         self.log('Processing %d changeset(s)...', len(changesets))
-        return self._handle_changeset_list_process(node, base, changesets)
 
-    def _handle_changeset_list_process(self, node, base, changesets):
+        if self.base is None and len(changesets) > 0:
+            self.base = changesets[0].parent()
+            if isinstance(self.base, list):
+                self.base = self.base[0]
+
+        return self._handle_changeset_list_process(node, changesets)
+
+    def _handle_changeset_list_process(self, node, changesets):
         revreqs = []
         for changeset in changesets:
             request = self.review_request_class(self.root,
                                                 self.repo_id,
                                                 changeset,
-                                                base,
+                                                self.base,
                                                 self.submitter)
 
             if self._check_duplicate(request, revreqs):
@@ -1229,7 +1236,7 @@ class BaseHook(object):
             self.log('Created review request (%d) for '
                      'changeset: %s', request.id(), request.node())
 
-    def push_to_reviewboard(self, node, base=None):
+    def push_to_reviewboard(self, node):
         """Run the hook.
 
         Returns:
@@ -1247,7 +1254,7 @@ class BaseHook(object):
 
         self._set_root()
         self._set_repo_id()
-        return self._handle_changeset_list(node, base)
+        return self._handle_changeset_list(node)
 
 
 class MercurialHook(BaseHook):
@@ -1261,7 +1268,7 @@ class MercurialHook(BaseHook):
         if self.repo_name is None:
             self.repo_name = os.environ['HG_PENDING']
 
-    def _list_of_incoming(self, node, base):
+    def _list_of_incoming(self, node):
         """Return a list of all changesets after (and including) node.
 
         Assumes that all incoming changeset have subsequent revision numbers.
@@ -1287,9 +1294,10 @@ class MercurialHook(BaseHook):
 class GitHook(BaseHook):
     """Class to represent a hook for Git repositories."""
 
-    def __init__(self, log, refs, repo=None):
+    def __init__(self, log, base, refs, repo=None):
         super(GitHook, self).__init__(log, 'Git', GitReviewRequest)
         self.refs = refs
+        self.base = base
 
         if self.repo_name is None:
             if os.environ.get('GIT_DIR') == '.':
@@ -1299,7 +1307,7 @@ class GitHook(BaseHook):
             else:
                 self.repo_name = os.environ.get('GIT_DIR')
 
-    def _handle_changeset_list_process(self, node, base, changesets):
+    def _handle_changeset_list_process(self, node, changesets):
         if len(changesets) > 1:
             for rev in changesets:
                 if len(rev.parent()) > 1:
@@ -1308,10 +1316,9 @@ class GitHook(BaseHook):
                     return 1
 
         return super(GitHook, self)._handle_changeset_list_process(node,
-                                                                   base,
                                                                    changesets)
 
-    def _list_of_incoming(self, node, base):
+    def _list_of_incoming(self, node):
         """Return a list of all changesets after (and including) node.
 
         Assumes that all incoming changeset have subsequent revision numbers.
@@ -1320,7 +1327,7 @@ class GitHook(BaseHook):
             list of object:
             The list of GitRevision.
         """
-        return GitRevision.fetch(node, base, self.refs)
+        return GitRevision.fetch(node, self.base, self.refs)
 
     def _log_push_info(self, node):
         super(GitHook, self)._log_push_info(node)
@@ -1336,8 +1343,7 @@ def process_mercurial_hook(stdin, log):
 
     h = MercurialHook(log)
     node = os.environ.get('HG_NODE')
-    base = MercurialRevision.normalize(node + '^1')
-    return h.push_to_reviewboard(node, base)
+    return h.push_to_reviewboard(node)
 
 
 def process_git_hook(stdin, log):
@@ -1353,8 +1359,8 @@ def process_git_hook(stdin, log):
         return 1
 
     (base, node, ref) = lines[0].split()
-    h = GitHook(log, ref)
-    return h.push_to_reviewboard(node, base)
+    h = GitHook(log, base, ref)
+    return h.push_to_reviewboard(node)
 
 
 def main(stdin=None):
