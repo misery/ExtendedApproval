@@ -5,6 +5,13 @@ The hook was designed to make posting to Review Board easy.
 It allows user to post to Review Board by using the
 ordinary 'hg push', without any need to learn or install RBTools locally.
 
+The hook with Review Board tries to act like gerrit for git.
+Every changeset is a review request that will be amended until it is
+marked as "Ship It!".
+
+Look also to reviewboard extension "Extended Approval"
+to have better control over the "approved" flag.
+
 This hook fits the following workflow:
 1. A user makes some (local) commits.
 2. He pushes those commits to the central server.
@@ -34,8 +41,13 @@ In more detail, the hook does the following:
    Push the changes and then update your summary or description.
 
 
+
+
+
+###### SetUp
+
 The hook submits review requests using the username of the current user.
-You need to configure a "hook" user with the following rights:
+You need to configure a "hook" user in Review Board with the following rights:
  Section: reviews | review request
   - 'Can edit review request'
   - 'Can submit as another user'
@@ -43,9 +55,11 @@ You need to configure a "hook" user with the following rights:
 Instead of the rights above you could set the "hook" user as an administrator.
 
 
-The credentials can be configured through
-the .reviewboardrc file (see RBTOOLS_CONFIG_PATH) on server:
+Those credentials can be configured through a global .reviewboardrc file on server:
+This file needs to be in the HOME directory of the server user or you
+need to define RBTOOLS_CONFIG_PATH.
 
+See reviewboardrc config file.
 REVIEWBOARD_URL: The URL of the Review Board server
 USERNAME: The username to use for logging into the server
 PASSWORD: The password to use for logging into the server
@@ -53,55 +67,42 @@ API_TOKEN: An API token to use for logging into the server. This is
            recommended and replaces the use of PASSWORD.
 
 
-## Mercurial
-You need to add the hook to your .hg/hgrc file of your repository.
-Use "/etc/gitlab/heptapod.hgrc" as the system-wide config for Heptapod.
+Also you need to install rbtools as the hook uses this.
+It is recommended to use current version from pypi: pip install -U rbtools
+
+Also it is recommended to use a virtualenv for this to have a clean
+environment: https://docs.python.org/3/tutorial/venv.html
+
+
+
+
+
+### Mercurial
+You need to add the hook to your .hg/hgrc file of your repository or use
+a global/system-wide .hgrc file to define the hook for all repositories once.
+
+Hint:
+  Use "/etc/gitlab/heptapod.hgrc" as the system-wide config for Heptapod.
+
+
+If you use a virtualenv or want some special changes for the hook you
+can use the provided reviewboard.sh as a wrapper to the hook.
 
 [hooks]
-pretxnchangegroup.rb = /path/to/hook/mercurial_push.py
+pretxnchangegroup.rb = /path/to/hook/mercurial_git_push.py
+#pretxnchangegroup.rb = /path/to/hook/reviewboard.sh
 
 This hook was tested with "hg serve", Heptapod, Kallithea and SCM-Manager
 as a remote hosting platform and a local repository.
 
-If the hook cannot find rbtools you should check the
-environment variable PYTHONPATH.
-
-Example:
-   export PYTHONPATH=/usr/lib/python2.7/site-packages
 
 
-If you want to use rbtools and this hook in a virtualenv you can
-setup the hook environment and add a wrapper script.
+### Git
+You need to add this hook as a pre-receive script to .git/hooks.
 
-Setup:
-1. virtualenv2 /opt/hook/
-2. source /opt/hook/bin/activate
-3. pip install rbtools
-
-RBTools 1.0.2 or higher is recommended!
-
-Wrapper:
-#!/usr/bin/env python2
-
-import os
-import subprocess
-import sys
-
-if __name__ == '__main__':
-    os.environ['PYTHONPATH'] = '/opt/hook/lib/python2.7/site-packages'
-    os.environ['LC_CTYPE'] = 'en_US.UTF-8'
-    os.environ['HOOK_HMAC_KEY'] = 'add random to override /etc/machine-id'
-    os.environ['RBTOOLS_CONFIG_PATH'] = '/opt/hook'
-    sys.exit(subprocess.call(['/opt/hook/mercurial_push.py'], env=os.environ))
-
-
-
-It tries to act like gerrit for git. Every changeset is
-a review request that will be amended until it is marked
-as "Ship It!".
-
-Look also to reviewboard extension "Extended Approval"
-to have better control over the "approved" flag.
+$ ln -s /path/to/hook/mercurial_git_push.py /path/to/repo/.git/hooks/pre-receive
+or
+$ ln -s /path/to/hook/reviewboard.sh /path/to/repo/.git/hooks/pre-receive
 """
 from __future__ import unicode_literals
 

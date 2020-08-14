@@ -1,0 +1,3 @@
+USERNAME='hook'
+REVIEWBOARD_URL='https://rb.yourcompany.com'
+API_TOKEN=''
