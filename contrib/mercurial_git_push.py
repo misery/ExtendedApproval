@@ -815,10 +815,6 @@ class MercurialRevision(BaseRevision):
             result.append(MercurialRevision(entry))
         return result
 
-    @staticmethod
-    def normalize(node):
-        return execute([HG, 'log', '-r', node, '-T {node}'])
-
     def __init__(self, json):
         super(MercurialRevision, self).__init__()
         self.json = json
@@ -972,7 +968,6 @@ class GitRevision(BaseRevision):
         self._hash = hashnode
         self._refs = refs.replace('refs/heads/', '') if refs else None
         self._merges = None
-        self._diffstat = None
 
         pretty = '--pretty=format:%an <%ae>#%ai#%P#%B'
         data = execute(['git', 'log', '-1', self._hash, pretty])
