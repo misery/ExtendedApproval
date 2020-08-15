@@ -1368,7 +1368,7 @@ def process_git_hook(stdin, log):
     return h.push_to_reviewboard(node)
 
 
-def main(stdin=None):
+def hook(stdin=None):
     import logging
 
     logging.basicConfig(format='%(levelname)s: %(message)s',
@@ -1396,4 +1396,4 @@ def main(stdin=None):
 
 if __name__ == '__main__':
     import sys
-    sys.exit(main())
+    sys.exit(hook())
