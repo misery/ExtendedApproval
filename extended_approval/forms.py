@@ -17,3 +17,8 @@ class ExtendedApprovalSettingsForm(SettingsForm):
         required=False,
         label='Revoke previous ShipIts',
         help_text='Revoke all ShipIts after a new diff was uploaded.')
+
+    enable_target_shipits = BooleanField(
+        required=False,
+        label='Allow ShipIts of target groups/people only',
+        help_text='Do not accept ShipIts if the user is not in review group/people.')

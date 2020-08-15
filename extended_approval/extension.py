@@ -26,6 +26,7 @@ from reviewboard.reviews.signals import (review_publishing,
 CONFIG_GRACE_PERIOD_DIFFSET = 'grace_period_diffset'
 CONFIG_GRACE_PERIOD_SHIPIT = 'grace_period_shipit'
 CONFIG_ENABLE_REVOKE_SHIPITS = 'enable_revoke_shipits'
+CONFIG_ENABLE_TARGET_SHIPITS = 'enable_target_shipits'
 
 
 class ReqReviews(object):
@@ -112,8 +113,14 @@ def check_grace_period(settings, diffset, shipit):
     return None
 
 
-def shipit_forbidden(user, review_request):
-    return user == review_request.owner
+def shipit_forbidden(settings, user, review_request):
+    return user == review_request.owner or (
+            settings.get(CONFIG_ENABLE_TARGET_SHIPITS) and
+            (
+             not review_request.target_groups.filter(pk=user.pk).exists() and
+             not review_request.target_people.filter(pk=user.pk).exists()
+            )
+        )
 
 
 class ApprovalColumn(Column):
@@ -216,11 +223,15 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
 
 
 class AdvancedShipItAction(ShipItAction):
+    def __init__(self, settings):
+        super(AdvancedShipItAction, self).__init__()
+        self.settings = settings
+
     def get_label(self, context):
         user = context['request'].user
         review_request = context['review_request']
 
-        if shipit_forbidden(user, review_request):
+        if shipit_forbidden(self.settings, user, review_request):
             return _('Ping It!')
 
         return ShipItAction.label
@@ -239,6 +250,7 @@ class ExtendedApproval(Extension):
         CONFIG_GRACE_PERIOD_DIFFSET: 60,
         CONFIG_GRACE_PERIOD_SHIPIT: 15,
         CONFIG_ENABLE_REVOKE_SHIPITS: False,
+        CONFIG_ENABLE_TARGET_SHIPITS: False,
     }
 
     def initialize(self):
@@ -267,7 +279,7 @@ class ExtendedApproval(Extension):
         new_actions = []
         for x in get_default_actions():
             if x.action_id == action.action_id:
-                new_actions.append(action())
+                new_actions.append(action(self.settings))
             else:
                 new_actions.append(x)
 
@@ -289,7 +301,8 @@ class ExtendedApproval(Extension):
                     self._revoke_shipits(r.getTotal(), review_request)
 
     def on_review_publishing(self, user=None, review=None, **kwargs):
-        if review.ship_it and shipit_forbidden(review.user,
+        if review.ship_it and shipit_forbidden(self.settings,
+                                               review.user,
                                                review.review_request):
             review.ship_it = False
             if review.body_top == review.SHIP_IT_TEXT:
