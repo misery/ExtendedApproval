@@ -55,9 +55,9 @@ You need to configure a "hook" user in Review Board with the following rights:
 Instead of the rights above you could set the "hook" user as an administrator.
 
 
-Those credentials can be configured through a global .reviewboardrc file on server:
-This file needs to be in the HOME directory of the server user or you
-need to define RBTOOLS_CONFIG_PATH.
+Those credentials can be configured through a global .reviewboardrc
+file on server. This file needs to be in the HOME directory of the
+server user or you need to define RBTOOLS_CONFIG_PATH.
 
 See reviewboardrc config file.
 REVIEWBOARD_URL: The URL of the Review Board server
@@ -103,9 +103,9 @@ $GIT_DIR and the core.hooksPath configuration.
 
 See: https://git-scm.com/docs/githooks
 
-$ ln -s /path/to/hook/mercurial_git_push.py /path/to/repo/.git/hooks/pre-receive
+$ ln -s /to/hook/mercurial_git_push.py /to/repo/.git/hooks/pre-receive
 or
-$ ln -s /path/to/hook/reviewboard.sh /path/to/repo/.git/hooks/pre-receive
+$ ln -s /to/hook/reviewboard.sh /to/repo/.git/hooks/pre-receive
 """
 from __future__ import unicode_literals
 
