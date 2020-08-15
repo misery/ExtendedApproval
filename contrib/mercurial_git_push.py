@@ -1010,7 +1010,8 @@ class GitRevision(BaseRevision):
         return []
 
     def file(self, filename):
-        return ''
+        entry = '%s:%s' % (self.node(False), filename)
+        return execute(['git', 'show', entry])
 
     def merges(self):
         """Get all changeset of this merge change.
