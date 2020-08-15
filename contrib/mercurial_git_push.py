@@ -475,52 +475,7 @@ class BaseReviewRequest(object):
                 self.diff_info.getHash(self.diffset_id) == e['diff_hash'])
 
     def _update_attachments(self):
-        stored_hashes = {}
-        if 'file_hashes' in self.request.extra_data:
-            stored_hashes = json.loads(self.request.extra_data['file_hashes'])
-
-        a = self.request.get_file_attachments(only_fields='caption,'
-                                              'attachment_history_id',
-                                              only_links='delete')
-        hashes = {}
-        existing = {}
-        for entry in a:
-            existing[entry['caption']] = entry
-
-        def modified(filename):
-            d = self._changeset.diffstat()
-            return filename in d and d[filename] != '0'
-
-        def handle_upload(f):
-            e = existing.get(f)
-            history = e['attachment_history_id'] if e else None
-            content = self._changeset.file(f)
-            hashes[f] = self.diff_info.getRawHash(content)
-            if f not in stored_hashes or hashes[f] != stored_hashes[f]:
-                a.upload_attachment(f, content, f, history)
-
-        mods = self._changeset.files('{file_mods|json}')
-        adds = self._changeset.files('{file_adds|json}')
-        foundAttachments = []
-        for entry in set(adds + mods):
-            if self.regexUpload.match(entry):
-                foundAttachments.append(entry)
-
-        if len(foundAttachments) > 0:
-            files = self._changeset.files()  # let's detect deleted files
-            copies = self._changeset.files('{file_copies|json}')
-            for e in foundAttachments:
-                if e not in files:
-                    continue
-                if e in copies and not modified(e):
-                    continue
-                handle_upload(e)
-
-        for entry in stored_hashes:
-            if entry not in hashes:
-                existing.get(entry).delete()
-
-        return json.dumps(hashes)
+        return None
 
     def _update(self):
         """Update review request draft based on changeset."""
@@ -681,6 +636,54 @@ class MercurialReviewRequest(BaseReviewRequest):
             content.append(graft)
 
         return content
+
+    def _update_attachments(self):
+        stored_hashes = {}
+        if 'file_hashes' in self.request.extra_data:
+            stored_hashes = json.loads(self.request.extra_data['file_hashes'])
+
+        a = self.request.get_file_attachments(only_fields='caption,'
+                                              'attachment_history_id',
+                                              only_links='delete')
+        hashes = {}
+        existing = {}
+        for entry in a:
+            existing[entry['caption']] = entry
+
+        def modified(filename):
+            d = self._changeset.diffstat()
+            return filename in d and d[filename] != '0'
+
+        def handle_upload(f):
+            e = existing.get(f)
+            history = e['attachment_history_id'] if e else None
+            content = self._changeset.file(f)
+            hashes[f] = self.diff_info.getRawHash(content)
+            if f not in stored_hashes or hashes[f] != stored_hashes[f]:
+                a.upload_attachment(f, content, f, history)
+
+        mods = self._changeset.files('{file_mods|json}')
+        adds = self._changeset.files('{file_adds|json}')
+        foundAttachments = []
+        for entry in set(adds + mods):
+            if self.regexUpload.match(entry):
+                foundAttachments.append(entry)
+
+        if len(foundAttachments) > 0:
+            files = self._changeset.files()  # let's detect deleted files
+            copies = self._changeset.files('{file_copies|json}')
+            for e in foundAttachments:
+                if e not in files:
+                    continue
+                if e in copies and not modified(e):
+                    continue
+                handle_upload(e)
+
+        for entry in stored_hashes:
+            if entry not in hashes:
+                existing.get(entry).delete()
+
+        return json.dumps(hashes)
 
     def _generate_diff_info(self):
         """Generate the diff if it has been changed.
@@ -1003,7 +1006,7 @@ class GitRevision(BaseRevision):
     def diffstat(self):
         return ''
 
-    def files(self, template='{files|json}'):
+    def files(self):
         return []
 
     def file(self, filename):
