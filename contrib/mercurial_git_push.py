@@ -1367,11 +1367,19 @@ def process_git_hook(stdin, log):
     return h.push_to_reviewboard(node)
 
 
+def get_logging_level(logging):
+    DEBUG = 'HG_USERVAR_DEBUG'
+    if DEBUG in os.environ and os.environ[DEBUG].lower() in ('true', 'on'):
+        return logging.DEBUG
+
+    return logging.INFO
+
+
 def hook(stdin=None):
     import logging
 
     logging.basicConfig(format='%(levelname)s: %(message)s',
-                        level=logging.INFO)
+                        level=get_logging_level(logging))
     logger = logging.getLogger('reviewboardhook')
 
     try:
