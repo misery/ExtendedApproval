@@ -98,7 +98,10 @@ as a remote hosting platform and a local repository.
 
 
 ### Git
-You need to add this hook as a pre-receive script to .git/hooks.
+You need to add this hook as a pre-receive script to .git/hooks or use
+$GIT_DIR and the core.hooksPath configuration.
+
+See: https://git-scm.com/docs/githooks
 
 $ ln -s /path/to/hook/mercurial_git_push.py /path/to/repo/.git/hooks/pre-receive
 or
