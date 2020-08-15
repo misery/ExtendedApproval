@@ -262,11 +262,11 @@ class ExtendedApproval(Extension):
         SignalHook(self, review_request_published, self.on_published)
         SignalHook(self, review_publishing, self.on_review_publishing)
 
-        self._replace_action(AdvancedShipItAction)
+        self._replace_action(AdvancedShipItAction(self.settings))
 
     def shutdown(self):
         super(ExtendedApproval, self).shutdown()
-        self._replace_action(ShipItAction)
+        self._replace_action(ShipItAction())
 
     def _replace_action(self, action):
         top_actions = []
@@ -279,7 +279,7 @@ class ExtendedApproval(Extension):
         new_actions = []
         for x in get_default_actions():
             if x.action_id == action.action_id:
-                new_actions.append(action(self.settings))
+                new_actions.append(action)
             else:
                 new_actions.append(x)
 
