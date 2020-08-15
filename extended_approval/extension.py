@@ -112,6 +112,10 @@ def check_grace_period(settings, diffset, shipit):
     return None
 
 
+def shipit_forbidden(user, review_request):
+    return user == review_request.owner
+
+
 class ApprovalColumn(Column):
     """Shows the approved state for a review request."""
     def __init__(self, extension, *args, **kwargs):
@@ -213,7 +217,10 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
 
 class AdvancedShipItAction(ShipItAction):
     def get_label(self, context):
-        if context['request'].user == context['review_request'].owner:
+        user = context['request'].user
+        review_request = context['review_request']
+
+        if shipit_forbidden(user, review_request):
             return _('Ping It!')
 
         return ShipItAction.label
@@ -282,7 +289,8 @@ class ExtendedApproval(Extension):
                     self._revoke_shipits(r.getTotal(), review_request)
 
     def on_review_publishing(self, user=None, review=None, **kwargs):
-        if review.ship_it and review.user == review.review_request.owner:
+        if review.ship_it and shipit_forbidden(review.user,
+                                               review.review_request):
             review.ship_it = False
             if review.body_top == review.SHIP_IT_TEXT:
                 review.body_top = 'PING! Could someone review and give ShipIt?'
