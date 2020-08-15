@@ -267,9 +267,9 @@ class BaseDiffer(object):
             self._hashes[diffset_id] = h
             return h
 
-    def __init__(self, root, request_id):
+    def __init__(self, tool, request_id):
         """Initialize object with the given API root."""
-        self.tool = None
+        self.tool = tool
         self._request_id = request_id
 
     def diff(self, rev1, rev2, base):
@@ -301,20 +301,21 @@ class BaseDiffer(object):
 
 class MercurialDiffer(BaseDiffer):
     def __init__(self, root, request_id):
-        super(MercurialDiffer, self).__init__(root, request_id)
         if rbversion >= '1.0.4':
-            self.tool = MercurialClient(HG)
+            tool = MercurialClient(HG)
         else:
-            self.tool = MercurialClient()
+            tool = MercurialClient()
         cmd = Command()
-        self.tool.capabilities = cmd.get_capabilities(api_root=root)
+        tool.capabilities = cmd.get_capabilities(api_root=root)
+
+        super(MercurialDiffer, self).__init__(tool, request_id)
 
 
 class GitDiffer(BaseDiffer):
     def __init__(self, root, request_id):
-        super(GitDiffer, self).__init__(root, request_id)
-        self.tool = GitClient()
-        self.tool.get_repository_info()
+        tool = GitClient()
+        tool.get_repository_info()
+        super(GitDiffer, self).__init__(tool, request_id)
 
 
 class BaseReviewRequest(object):
