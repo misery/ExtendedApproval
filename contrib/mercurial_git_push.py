@@ -734,7 +734,7 @@ class GitReviewRequest(BaseReviewRequest):
 
         differ = GitDiffer(self.root, self.request.id)
         self.diff_info = differ.diff(parent,
-                                     self.node(),
+                                     self.node(False),
                                      base)
 
 
