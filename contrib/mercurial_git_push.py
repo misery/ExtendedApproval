@@ -1087,7 +1087,7 @@ class BaseHook(object):
         cmd = MercurialGitHookCmd()
         try:
             server_url = cmd.get_server_url(None, None)
-        except Exception as e:
+        except Exception:
             self.log('Trying .reviewboardrc (RBTOOLS_CONFIG_PATH) file "'
                      'in "%s" and "%s"',
                      os.environ.get('HOME'),
@@ -1098,7 +1098,7 @@ class BaseHook(object):
 
         try:
             api_client, self.root = cmd.get_api(server_url)
-        except Exception as e:
+        except Exception:
             self.log('Cannot fetch data from RB. Is ALLOWED_HOST correct?')
             raise
 
