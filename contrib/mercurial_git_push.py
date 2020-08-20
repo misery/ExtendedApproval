@@ -809,8 +809,12 @@ class MercurialRevision(BaseRevision):
     """Class to represent information of changeset."""
     @staticmethod
     def fetch(revset):
-        changes = execute([HG, 'log', '-r', revset,
-                           '--template', 'json'])
+        changes = execute([HG, 'log', '--debug',
+                           '--config', 'ui.message-output=stderr',
+                           '-r', revset, '--template', 'json'],
+                          with_errors=False,
+                          return_errors=False)
+
         result = []
         for entry in json.loads(changes):
             result.append(MercurialRevision(entry))
@@ -824,16 +828,14 @@ class MercurialRevision(BaseRevision):
         self._diffstat = None
         self._graft_source = None
         self._raw_data = None
-        self._raw_data_map = None
 
     def graft(self, short=True):
         if self._graft_source is None:
             self._graft_source = ''
 
-            data = self._get_raw_data_map()
-            if b'extra' in data:
-                if b'source' in data[b'extra']:
-                    self._graft_source = data[b'extra'][b'source']
+            if 'extra' in self.json:
+                if 'source' in self.json['extra']:
+                    self._graft_source = self.json['extra']['source']
 
         if len(self._graft_source) > 0:
             return self._graft_source[:12] if short else self._graft_source
@@ -910,23 +912,6 @@ class MercurialRevision(BaseRevision):
             self._merges = MercurialRevision.fetch(revset)
 
         return self._merges
-
-    def _get_raw_data_map(self):
-        if self._raw_data_map is None:
-            content = {}
-            extra = {}
-            for line in self.raw_data():
-                (name, value) = line.split(b':', 1)
-                if name == b'extra':
-                    (extra_name, extra_value) = value.split(b'=', 1)
-                    extra[extra_name.strip()] = extra_value.strip()
-                    content[name] = extra
-                else:
-                    content[name] = value.strip()
-
-            self._raw_data_map = content
-
-        return self._raw_data_map
 
     def raw_data(self):
         if self._raw_data is None:
