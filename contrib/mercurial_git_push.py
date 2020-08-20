@@ -1091,7 +1091,7 @@ class BaseHook(object):
                      'in "%s" and "%s"',
                      os.environ.get('HOME'),
                      os.environ.get('RBTOOLS_CONFIG_PATH'))
-            raise e
+            raise
 
         self.log('Review Board: %s', server_url)
 
@@ -1099,7 +1099,7 @@ class BaseHook(object):
             api_client, self.root = cmd.get_api(server_url)
         except Exception as e:
             self.log('Cannot fetch data from RB. Is ALLOWED_HOST correct?')
-            raise e
+            raise
 
         session = get_authenticated_session(api_client, self.root,
                                             auth_required=True, num_retries=0)
