@@ -268,12 +268,10 @@ class BaseDiffer(object):
             self._hashes[diffset_id] = h
             return h
 
-    def __init__(self, tool, request_id):
-        """Initialize object with the given API root."""
+    def __init__(self, tool):
         self.tool = tool
-        self._request_id = request_id
 
-    def diff(self, rev1, rev2, base):
+    def diff(self, rev1, rev2, base, request_id):
         """Return a diff and parent diff of given changeset.
 
         Args:
@@ -286,6 +284,9 @@ class BaseDiffer(object):
             base (unicode):
                 Base revision of current changeset.
 
+            request_id (unicode):
+                ID of current review request.
+
         Returns:
             map:
             The diff information of the changeset.
@@ -294,14 +295,14 @@ class BaseDiffer(object):
                      'tip': rev2,
                      'parent_base': base}
         info = self.tool.diff(revisions=revisions)
-        return BaseDiffer.DiffContent(self._request_id,
+        return BaseDiffer.DiffContent(request_id,
                                       info['diff'],
                                       info['base_commit_id'],
                                       info['parent_diff'])
 
 
 class MercurialDiffer(BaseDiffer):
-    def __init__(self, root, request_id):
+    def __init__(self, root):
         if rbversion >= '1.0.4':
             tool = MercurialClient(HG)
         else:
@@ -309,20 +310,20 @@ class MercurialDiffer(BaseDiffer):
         cmd = Command()
         tool.capabilities = cmd.get_capabilities(api_root=root)
 
-        super(MercurialDiffer, self).__init__(tool, request_id)
+        super(MercurialDiffer, self).__init__(tool)
 
 
 class GitDiffer(BaseDiffer):
-    def __init__(self, root, request_id):
+    def __init__(self, root):
         tool = GitClient()
         tool.get_repository_info()
-        super(GitDiffer, self).__init__(tool, request_id)
+        super(GitDiffer, self).__init__(tool)
 
 
 class BaseReviewRequest(object):
     """A class to represent a review request from a Mercurial hook."""
 
-    def __init__(self, root, repo, changeset, base, submitter):
+    def __init__(self, root, repo, changeset, base, submitter, differ):
         """Initialize object with the given information.
 
         Args:
@@ -340,6 +341,9 @@ class BaseReviewRequest(object):
 
             submitter (unicode):
                 The username of current submitter.
+
+            differ (BaseDiffer):
+                An object to generate diffs.
         """
         self.root = root
         self.repo = repo
@@ -349,6 +353,7 @@ class BaseReviewRequest(object):
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
         self._skippable = None
+        self._differ = differ
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
         if not regex:
@@ -622,12 +627,13 @@ class BaseReviewRequest(object):
 
 
 class MercurialReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base, submitter):
+    def __init__(self, root, repo, changeset, base, submitter, differ):
         super(MercurialReviewRequest, self).__init__(root,
                                                      repo,
                                                      changeset,
                                                      base,
-                                                     submitter)
+                                                     submitter,
+                                                     differ)
 
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
@@ -694,10 +700,10 @@ class MercurialReviewRequest(BaseReviewRequest):
         - A commit for new branch: "hg branch" and "hg push --new-branch"
         - A commit to close a branch: "hg commit --close-branch"
         """
-        differ = MercurialDiffer(self.root, self.request.id)
-        self.diff_info = differ.diff(self.parent(),
-                                     self.node(False),
-                                     self.base)
+        self.diff_info = self._differ.diff(self.parent(),
+                                           self.node(False),
+                                           self.base,
+                                           self.request.id)
 
         if self.diff_info.getDiff() is None:
             content = []
@@ -710,12 +716,13 @@ class MercurialReviewRequest(BaseReviewRequest):
 
 
 class GitReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base, submitter):
+    def __init__(self, root, repo, changeset, base, submitter, differ):
         super(GitReviewRequest, self).__init__(root,
                                                repo,
                                                changeset,
                                                base,
-                                               submitter)
+                                               submitter,
+                                               differ)
 
     def _generate_diff_info(self):
         """Generate the diff if it has been changed."""
@@ -733,10 +740,10 @@ class GitReviewRequest(BaseReviewRequest):
         else:
             parent = initialCommit
 
-        differ = GitDiffer(self.root, self.request.id)
-        self.diff_info = differ.diff(parent,
-                                     self.node(False),
-                                     base)
+        self.diff_info = self._differ.diff(parent,
+                                           self.node(False),
+                                           base,
+                                           self.request.id)
 
 
 class MercurialGitHookCmd(Command):
@@ -1012,7 +1019,7 @@ class GitRevision(BaseRevision):
 class BaseHook(object):
     """Class to represent a hook for Mercurial repositories."""
 
-    def __init__(self, log, name, review_request_class, repo=None):
+    def __init__(self, log, name, review_request_class, review_differ_class):
         self.log = log
         self.submitter = None
         self.repo_name = None
@@ -1022,6 +1029,8 @@ class BaseHook(object):
         self.base = None
         self.name = name
         self.review_request_class = review_request_class
+        self.review_differ_class = review_differ_class
+        self._differ = None
 
         e = os.environ
         if 'KALLITHEA_EXTRAS' in e:
@@ -1046,8 +1055,6 @@ class BaseHook(object):
             self.repo_name = e['REPO_NAME']
         else:
             self.submitter = getpass.getuser()
-            if repo is not None:
-                self.repo_name = repo
 
     def _set_repo_id(self):
         """Set ID of repository."""
@@ -1100,6 +1107,8 @@ class BaseHook(object):
             raise HookError('Please add an USERNAME and a PASSWORD or '
                             'API_TOKEN to .reviewboardrc')
 
+        self._differ = self.review_differ_class(self.root)
+
     def _check_duplicate(self, req, revreqs):
         """Check if a summary or commit_id is already used during this push.
 
@@ -1147,7 +1156,8 @@ class BaseHook(object):
                                                 self.repo_id,
                                                 changeset,
                                                 self.base,
-                                                self.submitter)
+                                                self.submitter,
+                                                self._differ)
 
             if self._check_duplicate(request, revreqs):
                 self.log('Ignoring changeset (%s) as it has a '
@@ -1252,7 +1262,8 @@ class MercurialHook(BaseHook):
     def __init__(self, log, repo=None):
         super(MercurialHook, self).__init__(log,
                                             'Mercurial',
-                                            MercurialReviewRequest)
+                                            MercurialReviewRequest,
+                                            MercurialDiffer)
 
         if self.repo_name is None:
             self.repo_name = os.environ['HG_PENDING']
@@ -1284,7 +1295,11 @@ class GitHook(BaseHook):
     """Class to represent a hook for Git repositories."""
 
     def __init__(self, log, base, refs, repo=None):
-        super(GitHook, self).__init__(log, 'Git', GitReviewRequest)
+        super(GitHook, self).__init__(log,
+                                      'Git',
+                                      GitReviewRequest,
+                                      GitDiffer)
+
         self.refs = refs
         self.base = base
 
