@@ -3,7 +3,8 @@
 
 The hook was designed to make posting to Review Board easy.
 It allows user to post to Review Board by using the
-ordinary 'hg push', without any need to learn or install RBTools locally.
+ordinary 'hg push' or 'git push', without any need to learn or
+install RBTools locally.
 
 The hook with Review Board tries to act like gerrit for git.
 Every changeset is a review request that will be amended until it is
