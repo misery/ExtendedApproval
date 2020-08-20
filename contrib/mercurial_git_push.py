@@ -915,16 +915,15 @@ class MercurialRevision(BaseRevision):
 
     def raw_data(self):
         if self._raw_data is None:
-            detail = 'changeset: {node}\n' \
-                     'branch:    {branch}\n' \
-                     'parent:    {p1node}\n' \
-                     'parent:    {p2node}\n' \
-                     'user:      {author}\n' \
-                     'date:      {localdate(date, "UTC")|date}\n' \
-                     'extra:     {join(extras, "\nextra:     ")}\n'
-            cmd = [HG, 'log', '-T', detail, '-r', self.node()]
-            content = execute(cmd, results_unicode=False)
-            self._raw_data = content.strip().splitlines()
+            j = self.json
+            content = []
+            content.append('changeset: %s' % j['node'])
+            content.append('parents:   %s' % json.dumps(j['parents']))
+            content.append('user:      %s' % j['user'])
+            content.append('date:      %s' % self.date())
+            content.append('branch:    %s' % j['branch'])
+            content.append('extra:     %s' % json.dumps(j['extra']))
+            self._raw_data = content
 
         return self._raw_data
 
