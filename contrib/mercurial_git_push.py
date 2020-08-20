@@ -755,6 +755,7 @@ class MercurialGitHookCmd(Command):
     ]
 
     def __init__(self):
+        super(MercurialGitHookCmd, self).__init__()
         parser = self.create_arg_parser([])
         self.options = parser.parse_args([])
 
