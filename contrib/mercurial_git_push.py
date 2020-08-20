@@ -289,9 +289,14 @@ class BaseDiffer(object):
             map:
             The diff information of the changeset.
         """
-        revisions = {'base': rev1,
-                     'tip': rev2,
-                     'parent_base': base}
+        revisions = {'base': rev1, 'tip': rev2}
+
+        # Avoid generating of empty parent diff
+        # If 'base' and 'parent_base' is the same this is the
+        # first new changeset. So there is no parent diff!
+        if revisions['base'] != base:
+            revisions['parent_base'] = base
+
         info = self.tool.diff(revisions=revisions)
         return BaseDiffer.DiffContent(self._key, request_id,
                                       info['diff'],
