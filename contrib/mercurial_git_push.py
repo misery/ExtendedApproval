@@ -186,17 +186,9 @@ class BaseDiffer(object):
 
     class DiffContent(object):
         """A class to hold info about a diff and the diff itself."""
-        def __init__(self, request_id,
+        def __init__(self, key, request_id,
                      diff, base_commit_id, parent_diff=None):
-            envKey = 'HOOK_HMAC_KEY'
-            self.key = os.environ.get(envKey)
-            if self.key is None:
-                try:
-                    with open('/etc/machine-id', 'r') as content_file:
-                        self.key = content_file.read().strip()
-                except Exception:
-                    raise HookError('You need to define %s' % envKey)
-
+            self._key = key
             self._request_id = request_id
             self._base_commit_id = base_commit_id
             self.setDiff(diff)
@@ -231,9 +223,9 @@ class BaseDiffer(object):
                 raise HookError('Cannot get hash without request id')
 
             if six.PY2:
-                k = self.key
+                k = self._key
             else:
-                k = bytes(self.key, 'ascii')
+                k = bytes(self._key, 'ascii')
 
             hasher = hmac.new(k, digestmod=hashlib.sha256)
             hasher.update(six.text_type(self._request_id).encode('utf-8'))
@@ -270,6 +262,14 @@ class BaseDiffer(object):
 
     def __init__(self, tool):
         self.tool = tool
+        envKey = 'HOOK_HMAC_KEY'
+        self.key = os.environ.get(envKey)
+        if self.key is None:
+            try:
+                with open('/etc/machine-id', 'r') as content_file:
+                    self.key = content_file.read().strip()
+            except Exception:
+                raise HookError('You need to define %s' % envKey)
 
     def diff(self, rev1, rev2, base, request_id):
         """Return a diff and parent diff of given changeset.
@@ -295,7 +295,7 @@ class BaseDiffer(object):
                      'tip': rev2,
                      'parent_base': base}
         info = self.tool.diff(revisions=revisions)
-        return BaseDiffer.DiffContent(request_id,
+        return BaseDiffer.DiffContent(self.key, request_id,
                                       info['diff'],
                                       info['base_commit_id'],
                                       info['parent_diff'])
