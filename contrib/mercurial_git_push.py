@@ -222,12 +222,7 @@ class BaseDiffer(object):
             if self._request_id is None:
                 raise HookError('Cannot get hash without request id')
 
-            if six.PY2:
-                k = self._key
-            else:
-                k = bytes(self._key, 'ascii')
-
-            hasher = hmac.new(k, digestmod=hashlib.sha256)
+            hasher = hmac.new(self._key, digestmod=hashlib.sha256)
             hasher.update(six.text_type(self._request_id).encode('utf-8'))
             return hasher
 
@@ -263,13 +258,16 @@ class BaseDiffer(object):
     def __init__(self, tool):
         self.tool = tool
         envKey = 'HOOK_HMAC_KEY'
-        self.key = os.environ.get(envKey)
-        if self.key is None:
+        self._key = os.environ.get(envKey)
+        if self._key is None:
             try:
                 with open('/etc/machine-id', 'r') as content_file:
-                    self.key = content_file.read().strip()
+                    self._key = content_file.read().strip()
             except Exception:
                 raise HookError('You need to define %s' % envKey)
+
+        if not six.PY2:
+            self._key = bytes(self._key, 'ascii')
 
     def diff(self, rev1, rev2, base, request_id):
         """Return a diff and parent diff of given changeset.
@@ -295,7 +293,7 @@ class BaseDiffer(object):
                      'tip': rev2,
                      'parent_base': base}
         info = self.tool.diff(revisions=revisions)
-        return BaseDiffer.DiffContent(self.key, request_id,
+        return BaseDiffer.DiffContent(self._key, request_id,
                                       info['diff'],
                                       info['base_commit_id'],
                                       info['parent_diff'])
