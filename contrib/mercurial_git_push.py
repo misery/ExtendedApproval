@@ -643,7 +643,10 @@ class MercurialReviewRequest(BaseReviewRequest):
 
         graft = self.graft(False)
         if graft:
-            content.append(graft)
+            if six.PY2:
+                content.append(graft)
+            else:
+                content.append(bytes(graft, 'ascii'))
 
         return content
 
@@ -934,7 +937,13 @@ class MercurialRevision(BaseRevision):
             content.append('date:      %s' % self.date())
             content.append('branch:    %s' % j['branch'])
             content.append('extra:     %s' % json.dumps(j['extra']))
-            self._raw_data = content
+
+            if six.PY2:
+                self._raw_data = content
+            else:
+                self._raw_data = []
+                for line in content:
+                    self._raw_data.append(bytes(line, 'utf-8'))
 
         return self._raw_data
 
