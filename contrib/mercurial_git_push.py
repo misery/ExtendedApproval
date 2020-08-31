@@ -246,9 +246,11 @@ class BaseDiffer(object):
 
             hasher = self._getHasher()
             hasher.update(six.text_type(diffset_id).encode('utf-8'))
+
+            prefixes = (b'diff', b'@@', b'#')
+
             for line in self._diff.splitlines():
-                if (len(line) > 0 and not line.startswith(b'diff') and not
-                   line.startswith(b'@@')) and not line.startswith(b'#'):
+                if len(line) > 0 and not line.startswith(prefixes):
                     hasher.update(line)
 
             h = hasher.hexdigest()
