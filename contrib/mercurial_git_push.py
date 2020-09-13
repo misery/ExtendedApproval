@@ -603,7 +603,7 @@ class BaseReviewRequest(object):
                                              only_links=links,
                                              commit_id=self.commit_id)
 
-        count = len(reqs)
+        count = reqs.total_results if reqs else 0
         if count == 0:
             reqs = self.root.get_review_requests(repository=self.repo,
                                                  status='pending',
