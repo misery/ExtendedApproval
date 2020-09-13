@@ -247,7 +247,7 @@ class BaseDiffer(object):
             hasher = self._getHasher()
             hasher.update(six.text_type(diffset_id).encode('utf-8'))
 
-            prefixes = (b'diff', b'@@', b'#')
+            prefixes = (b'diff', b'@@', b'#', b'index')
 
             for line in self._diff.splitlines():
                 if len(line) > 0 and not line.startswith(prefixes):
