@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-from django.forms import BooleanField, IntegerField
+from django.forms import CharField, BooleanField, IntegerField
 from djblets.extensions.forms import SettingsForm
 
 
@@ -21,4 +21,10 @@ class ExtendedApprovalSettingsForm(SettingsForm):
     enable_target_shipits = BooleanField(
         required=False,
         label='Allow ShipIts of target groups/people only',
-        help_text='Do not accept ShipIts if the user is not in review group/people.')
+        help_text=('Do not accept ShipIts if the user is not in '
+                   'review group/people.'))
+
+    forbidden_user_shipits = CharField(
+        required=False,
+        label='User who can never ShipIt',
+        help_text='Comma separated list of usernames.')

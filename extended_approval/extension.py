@@ -27,6 +27,7 @@ CONFIG_GRACE_PERIOD_DIFFSET = 'grace_period_diffset'
 CONFIG_GRACE_PERIOD_SHIPIT = 'grace_period_shipit'
 CONFIG_ENABLE_REVOKE_SHIPITS = 'enable_revoke_shipits'
 CONFIG_ENABLE_TARGET_SHIPITS = 'enable_target_shipits'
+CONFIG_FORBIDDEN_USER_SHIPITS = 'forbidden_user_shipits'
 
 
 class ReqReviews(object):
@@ -113,14 +114,23 @@ def check_grace_period(settings, diffset, shipit):
     return None
 
 
+def shipit_user_forbidden(settings, user):
+    setting = settings.get(CONFIG_FORBIDDEN_USER_SHIPITS)
+    forbidden = setting.strip().lower().split(',')
+    return user.username.lower() in forbidden
+
+
+def shipit_target_forbidden(settings, user, review_request):
+    return settings.get(CONFIG_ENABLE_TARGET_SHIPITS) and (
+            not review_request.target_groups.filter(pk=user.pk).exists() and
+            not review_request.target_people.filter(pk=user.pk).exists()
+           )
+
+
 def shipit_forbidden(settings, user, review_request):
-    return user == review_request.owner or (
-            settings.get(CONFIG_ENABLE_TARGET_SHIPITS) and
-            (
-             not review_request.target_groups.filter(pk=user.pk).exists() and
-             not review_request.target_people.filter(pk=user.pk).exists()
-            )
-        )
+    return user == review_request.owner or \
+           shipit_user_forbidden(settings, user) or \
+           shipit_target_forbidden(settings, user, review_request)
 
 
 class ApprovalColumn(Column):
@@ -251,6 +261,7 @@ class ExtendedApproval(Extension):
         CONFIG_GRACE_PERIOD_SHIPIT: 15,
         CONFIG_ENABLE_REVOKE_SHIPITS: False,
         CONFIG_ENABLE_TARGET_SHIPITS: False,
+        CONFIG_FORBIDDEN_USER_SHIPITS: '',
     }
 
     def initialize(self):
