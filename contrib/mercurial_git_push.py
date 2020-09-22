@@ -782,8 +782,8 @@ class BaseRevision(object):
 
     def info(self):
         if self._info is None:
-            template = ('{author} ({date}) [{node}] '
-                        '[{branch}] [graft: {graft}]:\n{desc}')
+            template = ('```{author} ({date}) [{node}] '
+                        '[{branch}] [graft: {graft}]:```\n\n{desc}')
 
             self._info = template.format(author=self.author(),
                                          date=self.date(),
