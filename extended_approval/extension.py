@@ -122,7 +122,7 @@ def shipit_user_forbidden(settings, user):
 
 def shipit_target_forbidden(settings, user, review_request):
     return settings.get(CONFIG_ENABLE_TARGET_SHIPITS) and (
-            not review_request.target_groups.filter(pk=user.pk).exists() and
+            not review_request.target_groups.filter(users__pk=user.pk).exists() and
             not review_request.target_people.filter(pk=user.pk).exists()
            )
 
