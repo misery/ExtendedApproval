@@ -662,7 +662,7 @@ class MercurialReviewRequest(BaseReviewRequest):
                                               only_links='delete')
         hashes = {}
         existing = {}
-        for entry in a:
+        for entry in a.all_items:
             existing[entry['caption']] = entry
 
         def modified(filename):
@@ -695,7 +695,7 @@ class MercurialReviewRequest(BaseReviewRequest):
                 handle_upload(e)
 
         for entry in stored_hashes:
-            if entry not in hashes:
+            if entry not in hashes and entry in existing:
                 existing.get(entry).delete()
 
         return json.dumps(hashes)
