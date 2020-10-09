@@ -696,7 +696,7 @@ class MercurialReviewRequest(BaseReviewRequest):
 
         for entry in stored_hashes:
             if entry not in hashes and entry in existing:
-                existing.get(entry).delete()
+                existing[entry].delete()
 
         return json.dumps(hashes)
 
