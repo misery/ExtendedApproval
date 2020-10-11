@@ -612,7 +612,7 @@ class BaseReviewRequest(object):
                                                  only_links=links,
                                                  from_user=self.submitter)
             found = None
-            for r in reqs:
+            for r in reqs.all_items:
                 if r.summary == self.summary():
                     if found is not None:
                         raise HookError('Multiple review requests: %s'
