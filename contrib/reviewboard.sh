@@ -6,6 +6,10 @@
 # source /path.to/env/bin/activate
 # export RBTOOLS_CONFIG_PATH=/path.to/
 
+# Add truststore for Git signatures
+# export GNUPGHOME=/path.to/truststore/active
+# export HOOK_SIGNATURE_TRUST=fully,ultimate
+
 REPOS=/path.to/repos
 
 if [ -n "$HG_PENDING" ]; then
