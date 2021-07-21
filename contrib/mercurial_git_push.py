@@ -976,13 +976,25 @@ class GitRevision(BaseRevision):
         self._refs = refs.replace('refs/heads/', '') if refs else None
         self._merges = None
 
-        pretty = '--pretty=format:%an <%ae>#%ai#%P#%B'
+        pretty = '--pretty=format:%an <%ae>#%ai#%P#%GT#%G?#%GP#%B'
         data = execute(['git', 'log', '-1', self._hash, pretty])
-        data = data.split('#', 4)
+        data = data.split('#', 7)
         self._user = data[0]
         self._date = data[1]
         self._parent = data[2].split()
-        self._desc = data[3]
+        self._sign_trust = data[3]
+        self._sign_verify = data[4]
+        self._sign_id = data[5]
+        self._desc = data[6]
+
+    def signTrust(self):
+        return self._sign_trust
+
+    def signVerify(self):
+        return self._sign_verify
+
+    def signId(self):
+        return self._sign_id
 
     def graft(self):
         return None
@@ -1326,7 +1338,32 @@ class GitHook(BaseHook):
             else:
                 self.repo_name = os.environ.get('GIT_DIR')
 
+    def _check_signatures(self, changesets):
+        hookSignTrust = os.environ.get('HOOK_SIGNATURE_TRUST')
+        if not hookSignTrust:
+            return True
+
+        hookSignTrust = hookSignTrust.strip().split(',')
+        self.log('Check signature trust: %s', hookSignTrust)
+        for changeset in changesets:
+            if (changeset.signTrust() not in hookSignTrust
+               or changeset.signVerify() != 'G'):
+
+                self.log('Signature of changeset (%s) invalid. '
+                         'Trust: %s | Verify: %s | Sign-ID: %s',
+                         changeset.node(),
+                         changeset.signTrust(),
+                         changeset.signVerify(),
+                         changeset.signId())
+
+                return False
+
+        return True
+
     def _handle_changeset_list_process(self, node, changesets):
+        if not self._check_signatures(changesets):
+            return 1
+
         if len(changesets) > 1:
             for rev in changesets:
                 if len(rev.parent()) > 1:
