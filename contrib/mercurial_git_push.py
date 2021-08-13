@@ -363,7 +363,7 @@ class BaseReviewRequest(object):
         self._skippable = None
         self._differ = differ
         self._web = web
-        self._web_node_regex = re.compile(r'\b([0-9|a-z]{40}|[0-9|a-z]{12})\b')
+        self._web_node_regex = re.compile(r'\b([0-9|a-f]{40}|[0-9|a-f]{12})\b')
         self._web_backref = r'[\g<0>]({0}\g<0>)'.format(web.format('')) if web else None
         self._info = None
 
