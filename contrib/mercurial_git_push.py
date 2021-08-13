@@ -425,7 +425,7 @@ class BaseReviewRequest(object):
         return self._skippable
 
     def _info(self):
-        return self._changeset.info()
+        return self._changeset.info(self._web)
 
     def exists(self):
         """Return existence of review request.
@@ -786,17 +786,23 @@ class BaseRevision(object):
                 self._summary = self._summary[0:150] + ' ...'
         return self._summary
 
-    def info(self):
+    def info(self, web=None):
         if self._info is None:
             template = ('```{author} ({date}) [{node}] '
                         '[{branch}] [graft: {graft}]```\n\n{desc}')
+
+            desc = self.desc()
+            if web is not None:
+                regex = re.compile(r'\b([0-9|a-z]{40}|[0-9|a-z]{12})\b')
+                backref = '[\g<0>]({0}\g<0>)'.format(web.format(''))
+                desc = regex.sub(backref, desc)
 
             self._info = template.format(author=self.author(),
                                          date=self.date(),
                                          node=self.node(),
                                          branch=self.branch(),
                                          graft=self.graft(),
-                                         desc=self.desc())
+                                         desc=desc)
             merges = self.merges()
             if merges:
                 self._info += '\n\n\n'
