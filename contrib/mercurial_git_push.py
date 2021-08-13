@@ -328,7 +328,7 @@ class GitDiffer(BaseDiffer):
 class BaseReviewRequest(object):
     """A class to represent a review request from a Mercurial hook."""
 
-    def __init__(self, root, repo, changeset, base, submitter, differ):
+    def __init__(self, root, repo, changeset, base, submitter, differ, web):
         """Initialize object with the given information.
 
         Args:
@@ -349,6 +349,9 @@ class BaseReviewRequest(object):
 
             differ (BaseDiffer):
                 An object to generate diffs.
+
+            web (unicode, optional):
+                URL to web repository.
         """
         self.root = root
         self.repo = repo
@@ -359,6 +362,7 @@ class BaseReviewRequest(object):
         self.diff_info = None
         self._skippable = None
         self._differ = differ
+        self._web = web
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
         if not regex:
@@ -444,13 +448,13 @@ class BaseReviewRequest(object):
                 self._modified_description() or not
                 self._diff_up_to_date())
 
-    def close(self, web=None):
+    def close(self):
         """Close the given review request with a message."""
         rev = self.node()
         text_type = 'plain'
-        if web is not None:
+        if self._web is not None:
             text_type = 'markdown'
-            web = web.format(rev)
+            web = self._web.format(rev)
             rev = '[{0}]({1})'.format(rev, web)
 
         msg = 'Automatically closed by a push (hook): %s' % rev
@@ -632,13 +636,14 @@ class BaseReviewRequest(object):
 
 
 class MercurialReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base, submitter, differ):
+    def __init__(self, root, repo, changeset, base, submitter, differ, web):
         super(MercurialReviewRequest, self).__init__(root,
                                                      repo,
                                                      changeset,
                                                      base,
                                                      submitter,
-                                                     differ)
+                                                     differ,
+                                                     web)
 
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
@@ -724,13 +729,14 @@ class MercurialReviewRequest(BaseReviewRequest):
 
 
 class GitReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base, submitter, differ):
+    def __init__(self, root, repo, changeset, base, submitter, differ, web):
         super(GitReviewRequest, self).__init__(root,
                                                repo,
                                                changeset,
                                                base,
                                                submitter,
-                                               differ)
+                                               differ,
+                                               web)
 
     def _generate_diff_info(self):
         """Generate the diff if it has been changed."""
@@ -1184,7 +1190,8 @@ class BaseHook(object):
                                                 changeset,
                                                 self.base,
                                                 self.submitter,
-                                                self._differ)
+                                                self._differ,
+                                                self.web)
 
             if self._check_duplicate(request, revreqs):
                 self.log('Ignoring changeset (%s) as it has a '
@@ -1220,7 +1227,7 @@ class BaseHook(object):
         if idx is None:
             for r in revreqs:
                 self.log('Closing review request: %s', r.id())
-                r.close(self.web)
+                r.close()
             return 0
         elif idx > 0:
             self._log_push_info(revreqs[idx - 1].node())
