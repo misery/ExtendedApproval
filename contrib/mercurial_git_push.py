@@ -794,7 +794,7 @@ class BaseRevision(object):
             desc = self.desc()
             if web is not None:
                 regex = re.compile(r'\b([0-9|a-z]{40}|[0-9|a-z]{12})\b')
-                backref = '[\g<0>]({0}\g<0>)'.format(web.format(''))
+                backref = r'[\g<0>]({0}\g<0>)'.format(web.format(''))
                 desc = regex.sub(backref, desc)
 
             self._info = template.format(author=self.author(),
