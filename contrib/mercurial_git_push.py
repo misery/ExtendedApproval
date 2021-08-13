@@ -363,6 +363,8 @@ class BaseReviewRequest(object):
         self._skippable = None
         self._differ = differ
         self._web = web
+        self._web_node_regex = re.compile(r'\b([0-9|a-z]{40}|[0-9|a-z]{12})\b')
+        self._info = None
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
         if not regex:
@@ -424,8 +426,52 @@ class BaseReviewRequest(object):
 
         return self._skippable
 
-    def _info(self):
-        return self._changeset.info(self._web)
+    def _replace_hashes(self, content):
+        if self._web is not None:
+            backref = r'[\g<0>]({0}\g<0>)'.format(self._web.format(''))
+            content = self._web_node_regex.sub(backref, content)
+        return content
+
+    def info(self):
+        if self._info is None:
+            template = ('```{author} ({date}) [{node}] '
+                        '[{branch}] [graft: {graft}]```\n\n{desc}')
+
+            desc = self._replace_hashes(self._changeset.desc())
+            self._info = template.format(author=self._changeset.author(),
+                                         date=self._changeset.date(),
+                                         node=self.node(),
+                                         branch=self.branch(),
+                                         graft=self._changeset.graft(),
+                                         desc=desc)
+            merges = self._changeset.merges()
+            if merges:
+                self._info += '\n\n\n'
+
+                files = self._changeset.files()
+                self._info += '# Touched %d file(s) by this merge ' \
+                              'changeset\n' % len(files)
+                for entry in files:
+                    self._info += '+ ' + entry + '\n'
+
+                self._info += '# Merges %d changeset(s)\n' % len(merges)
+
+                def add(changes):
+                    t = '+ [{node}] {summary}\n'
+                    for rev in changes:
+                        self._info += t.format(node=rev.node(),
+                                               summary=rev.summary())
+
+                if len(merges) > MAX_MERGE_ENTRIES + 1:
+                    add(merges[0:MAX_MERGE_ENTRIES])
+                    self._info += '+ ...\n'
+                    add([merges[-1]])
+                else:
+                    add(merges)
+
+            self._info = self._info.strip()
+
+        return self._info
 
     def exists(self):
         """Return existence of review request.
@@ -521,7 +567,7 @@ class BaseReviewRequest(object):
 
         draft.update(summary=self.summary(),
                      bugs_closed=bugs,
-                     description=self._info(),
+                     description=self.info(),
                      description_text_type='markdown',
                      branch=self.branch(),
                      commit_id=self.commit_id,
@@ -555,7 +601,7 @@ class BaseReviewRequest(object):
         regex = re.compile(regex)
 
         old = self.request.description
-        new = self._info()
+        new = self.info()
         return regex.sub('', old, 1) != regex.sub('', new, 1)
 
     def _commit_id_data(self):
@@ -777,7 +823,6 @@ class MercurialGitHookCmd(Command):
 class BaseRevision(object):
     def __init__(self):
         self._summary = None
-        self._info = None
 
     def summary(self):
         if self._summary is None:
@@ -785,52 +830,6 @@ class BaseRevision(object):
             if len(self._summary) > 150:
                 self._summary = self._summary[0:150] + ' ...'
         return self._summary
-
-    def info(self, web=None):
-        if self._info is None:
-            template = ('```{author} ({date}) [{node}] '
-                        '[{branch}] [graft: {graft}]```\n\n{desc}')
-
-            desc = self.desc()
-            if web is not None:
-                regex = re.compile(r'\b([0-9|a-z]{40}|[0-9|a-z]{12})\b')
-                backref = r'[\g<0>]({0}\g<0>)'.format(web.format(''))
-                desc = regex.sub(backref, desc)
-
-            self._info = template.format(author=self.author(),
-                                         date=self.date(),
-                                         node=self.node(),
-                                         branch=self.branch(),
-                                         graft=self.graft(),
-                                         desc=desc)
-            merges = self.merges()
-            if merges:
-                self._info += '\n\n\n'
-
-                files = self.files()
-                self._info += '# Touched %d file(s) by this merge ' \
-                              'changeset\n' % len(files)
-                for entry in files:
-                    self._info += '+ ' + entry + '\n'
-
-                self._info += '# Merges %d changeset(s)\n' % len(merges)
-
-                def add(changes):
-                    t = '+ [{node}] {summary}\n'
-                    for rev in changes:
-                        self._info += t.format(node=rev.node(),
-                                               summary=rev.summary())
-
-                if len(merges) > MAX_MERGE_ENTRIES + 1:
-                    add(merges[0:MAX_MERGE_ENTRIES])
-                    self._info += '+ ...\n'
-                    add([merges[-1]])
-                else:
-                    add(merges)
-
-            self._info = self._info.strip()
-
-        return self._info
 
 
 class MercurialRevision(BaseRevision):
