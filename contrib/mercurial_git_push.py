@@ -364,7 +364,7 @@ class BaseReviewRequest(object):
         self._differ = differ
         self._web = web
         self._web_node_regex = re.compile(r'\b([0-9|a-z]{40}|[0-9|a-z]{12})\b')
-        self._web_backref = r'[\g<0>]({0}\g<0>)'.format(self._web.format('')) if web else None
+        self._web_backref = r'[\g<0>]({0}\g<0>)'.format(web.format('')) if web else None
         self._info = None
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
