@@ -432,6 +432,12 @@ class BaseReviewRequest(object):
             content = self._web_node_regex.sub(backref, content)
         return content
 
+    def _markdown_rev(self, rev):
+        if self._web is not None:
+            web = self._web.format(rev)
+            rev = '[{0}]({1})'.format(rev, web)
+        return rev
+
     def info(self):
         if self._info is None:
             template = ('```{author} ({date}) [{node}] '
@@ -459,8 +465,10 @@ class BaseReviewRequest(object):
                 def add(changes):
                     t = '+ [{node}] {summary}\n'
                     for rev in changes:
-                        self._info += t.format(node=rev.node(),
-                                               summary=rev.summary())
+                        node = self._markdown_rev(rev.node())
+                        summary = self._replace_hashes(rev.summary())
+                        self._info += t.format(node=node,
+                                               summary=summary)
 
                 if len(merges) > MAX_MERGE_ENTRIES + 1:
                     add(merges[0:MAX_MERGE_ENTRIES])
@@ -496,13 +504,8 @@ class BaseReviewRequest(object):
 
     def close(self):
         """Close the given review request with a message."""
-        rev = self.node()
-        text_type = 'plain'
-        if self._web is not None:
-            text_type = 'markdown'
-            web = self._web.format(rev)
-            rev = '[{0}]({1})'.format(rev, web)
-
+        rev = self._markdown_rev(self.node())
+        text_type = 'plain' if self._web is None else 'markdown'
         msg = 'Automatically closed by a push (hook): %s' % rev
         self.request.update(status='submitted',
                             close_description=msg,
