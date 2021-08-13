@@ -364,6 +364,7 @@ class BaseReviewRequest(object):
         self._differ = differ
         self._web = web
         self._web_node_regex = re.compile(r'\b([0-9|a-z]{40}|[0-9|a-z]{12})\b')
+        self._web_backref = r'[\g<0>]({0}\g<0>)'.format(self._web.format('')) if web else None
         self._info = None
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
@@ -427,16 +428,17 @@ class BaseReviewRequest(object):
         return self._skippable
 
     def _replace_hashes(self, content):
-        if self._web is not None:
-            backref = r'[\g<0>]({0}\g<0>)'.format(self._web.format(''))
-            content = self._web_node_regex.sub(backref, content)
+        if self._web_backref is not None:
+            content = self._web_node_regex.sub(self._web_backref, content)
         return content
 
     def _markdown_rev(self, rev):
+        text_type = 'plain'
         if self._web is not None:
+            text_type = 'markdown'
             web = self._web.format(rev)
             rev = '[{0}]({1})'.format(rev, web)
-        return rev
+        return (rev, text_type)
 
     def info(self):
         if self._info is None:
@@ -465,7 +467,7 @@ class BaseReviewRequest(object):
                 def add(changes):
                     t = '+ [{node}] {summary}\n'
                     for rev in changes:
-                        node = self._markdown_rev(rev.node())
+                        node, _ = self._markdown_rev(rev.node())
                         summary = self._replace_hashes(rev.summary())
                         self._info += t.format(node=node,
                                                summary=summary)
@@ -504,8 +506,7 @@ class BaseReviewRequest(object):
 
     def close(self):
         """Close the given review request with a message."""
-        rev = self._markdown_rev(self.node())
-        text_type = 'plain' if self._web is None else 'markdown'
+        rev, text_type = self._markdown_rev(self.node())
         msg = 'Automatically closed by a push (hook): %s' % rev
         self.request.update(status='submitted',
                             close_description=msg,
