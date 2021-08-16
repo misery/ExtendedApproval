@@ -1463,7 +1463,7 @@ def hook(stdin=None):
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.exception('Backtrace of error: %s' % e)
         else:
-            for line in six.text_type(e).split('\n'):
+            for line in six.text_type(e).splitlines():
                 logger.error(line)
 
     return -1
