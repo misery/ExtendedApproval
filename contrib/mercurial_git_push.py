@@ -1092,6 +1092,9 @@ class BaseHook(object):
         elif 'GL_USERNAME' in e and 'GL_PROJECT_PATH' in e:
             self.submitter = e['GL_USERNAME']
             self.repo_name = e['GL_PROJECT_PATH']
+        elif 'HGK_USERNAME' in e and 'HGK_REPOSITORY' in e:
+            self.submitter = e['HGK_USERNAME']
+            self.repo_name = e['HGK_REPOSITORY']
         elif 'REPO_NAME' in e and 'REMOTE_USER' in e:
             self.submitter = e['REMOTE_USER']
             self.repo_name = e['REPO_NAME']
