@@ -93,8 +93,8 @@ can use the provided reviewboard.sh as a wrapper to the hook.
 pretxnchangegroup.rb = /path/to/hook/mercurial_git_push.py
 #pretxnchangegroup.rb = /path/to/hook/reviewboard.sh
 
-This hook was tested with "hg serve", Heptapod, Kallithea and SCM-Manager
-as a remote hosting platform and a local repository.
+This hook was tested with "hg serve", hgkeeper, Heptapod, Kallithea
+and SCM-Manager as a remote hosting platform and a local repository.
 
 
 
