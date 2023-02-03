@@ -307,19 +307,18 @@ class BaseDiffer(object):
 
 
 class MercurialDiffer(BaseDiffer):
-    def __init__(self, root):
+    def __init__(self, root, cmd):
         if rbversion >= '1.0.4':
             tool = MercurialClient(HG)
         else:
             tool = MercurialClient()
-        cmd = Command()
         tool.capabilities = cmd.get_capabilities(api_root=root)
 
         super(MercurialDiffer, self).__init__(tool)
 
 
 class GitDiffer(BaseDiffer):
-    def __init__(self, root):
+    def __init__(self, root, cmd):
         tool = GitClient()
         tool.get_repository_info()
         super(GitDiffer, self).__init__(tool)
@@ -1152,7 +1151,7 @@ class BaseHook(object):
             raise HookError('Please add an USERNAME and a PASSWORD or '
                             'API_TOKEN to .reviewboardrc')
 
-        self._differ = self.review_differ_class(self.root)
+        self._differ = self.review_differ_class(self.root, cmd)
 
     def _check_duplicate(self, req, revreqs):
         """Check if a summary or commit_id is already used during this push.
