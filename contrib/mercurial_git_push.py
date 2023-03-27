@@ -1100,6 +1100,8 @@ class BaseHook(object):
         else:
             self.submitter = getpass.getuser()
 
+        self.repo_name = self.repo_name.strip('/')
+
     def _set_repo_id(self):
         """Set ID of repository."""
         fields = 'path,mirror_path,id'
