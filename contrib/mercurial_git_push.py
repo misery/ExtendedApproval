@@ -619,7 +619,7 @@ class BaseReviewRequest(object):
                 s.startswith('Added tag ') or
                 s.startswith('Moved tag ') or
                 s.startswith('Removed tag ')):
-            content.append(s)
+            content.append(s.encode('utf-8'))
 
         return content
 
