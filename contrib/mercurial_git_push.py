@@ -312,7 +312,11 @@ class MercurialDiffer(BaseDiffer):
             tool = MercurialClient(HG)
         else:
             tool = MercurialClient()
-        tool.capabilities = cmd.get_capabilities(api_root=root)
+
+        if rbversion >= '3':
+            tool.capabilities = cmd.capabilities
+        else:
+            tool.capabilities = cmd.get_capabilities(api_root=root)
 
         super(MercurialDiffer, self).__init__(tool)
 
@@ -813,6 +817,7 @@ class MercurialGitHookCmd(Command):
     """Helper to parse configuration from .reviewboardrc file."""
 
     name = 'MercurialGitHook'
+    needs_api = True
     option_list = [
         Command.server_options,
     ]
@@ -1128,9 +1133,8 @@ class BaseHook(object):
         self.repo_id = r.id
         return r
 
-    def _set_root(self):
-        """Set API root object."""
-        cmd = MercurialGitHookCmd()
+    def _init_rbtools(self, cmd):
+        """Initialize internal rbtools stuff"""
         try:
             server_url = cmd.get_server_url(None, None)
         except Exception:
@@ -1140,19 +1144,34 @@ class BaseHook(object):
                      os.environ.get('RBTOOLS_CONFIG_PATH'))
             raise
 
-        self.log('Review Board: %s', server_url)
-
         try:
-            api_client, self.root = cmd.get_api(server_url)
+            api_client, root = cmd.get_api(server_url)
         except Exception:
-            self.log('Cannot fetch data from RB. Is ALLOWED_HOST correct?')
+            self.log('Cannot fetch data from RB (%s). '
+                     'Is ALLOWED_HOST correct?',
+                     server_url)
             raise
 
-        session = get_authenticated_session(api_client, self.root,
+        session = get_authenticated_session(api_client, root,
                                             auth_required=True, num_retries=0)
         if session is None or not session.authenticated:
             raise HookError('Please add an USERNAME and a PASSWORD or '
                             'API_TOKEN to .reviewboardrc')
+
+        return root
+
+    def _set_root(self):
+        """Set API root object."""
+        cmd = MercurialGitHookCmd()
+        try:
+            if rbversion >= '3':
+                cmd.initialize()
+                self.root = cmd.api_root
+            else:
+                self.root = self._init_rbtools(cmd)
+        except Exception:
+            self.log('Cannot init rbtools...')
+            raise
 
         self._differ = self.review_differ_class(self.root, cmd)
 
