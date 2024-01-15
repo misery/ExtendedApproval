@@ -2,7 +2,7 @@ from reviewboard.extensions.packaging import setup
 
 
 PACKAGE = "rbExtendedApproval"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 setup(
     name=PACKAGE,
@@ -13,7 +13,7 @@ setup(
     url='https://github.com/misery/ExtendedApproval',
     packages=[str('extended_approval')],
     install_requires=[
-        'reviewboard>=3',
+        'reviewboard>=6',
     ],
     entry_points={
         'reviewboard.extensions':

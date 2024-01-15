@@ -1,10 +1,6 @@
 import pytz
 from datetime import datetime, timedelta
 
-from reviewboard.reviews.actions import get_top_level_actions
-from reviewboard.reviews.default_actions import (ShipItAction,
-                                                 get_default_actions)
-
 from djblets.datagrid.grids import Column
 
 from django.utils.html import format_html
@@ -12,11 +8,14 @@ from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 from reviewboard.extensions.base import Extension
-from reviewboard.extensions.hooks import (DataGridColumnsHook,
+from reviewboard.extensions.hooks import (ActionHook,
+                                          DataGridColumnsHook,
                                           DashboardColumnsHook,
+                                          HideActionHook,
                                           ReviewRequestApprovalHook,
                                           SignalHook)
 from reviewboard.datagrids.grids import ReviewRequestDataGrid
+from reviewboard.reviews.actions import ShipItAction
 from reviewboard.reviews.signals import (review_publishing,
                                          review_request_published)
 
@@ -120,8 +119,8 @@ def shipit_user_forbidden(settings, user):
 
 def shipit_target_forbidden(settings, user, review_request):
     return settings.get(CONFIG_ENABLE_TARGET_SHIPITS) and (
-            not review_request.target_groups.filter(users__pk=user.pk).exists() and
-            not review_request.target_people.filter(pk=user.pk).exists()
+            not review_request.target_groups.filter(users__pk=user.pk).exists()
+            and not review_request.target_people.filter(pk=user.pk).exists()
            )
 
 
@@ -231,18 +230,34 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
 
 
 class AdvancedShipItAction(ShipItAction):
+    action_id = 'advanced-ship-it'
+
     def __init__(self, settings):
         super(AdvancedShipItAction, self).__init__()
         self.settings = settings
 
-    def get_label(self, context):
+    def should_render(self, context):
         user = context['request'].user
         review_request = context['review_request']
+        return not shipit_forbidden(self.settings, user, review_request)
 
-        if shipit_forbidden(self.settings, user, review_request):
-            return _('Ping It!')
 
-        return ShipItAction.label
+class AdvancedPingItAction(ShipItAction):
+    action_id = 'advanced-ping-it'
+    label = _('Ping It!')
+    description = [
+        _("You're happy with what you're seeing, and would like to "
+          'request a ShipIt.'),
+    ]
+
+    def __init__(self, settings):
+        super(AdvancedPingItAction, self).__init__()
+        self.settings = settings
+
+    def should_render(self, context):
+        user = context['request'].user
+        review_request = context['review_request']
+        return shipit_forbidden(self.settings, user, review_request)
 
 
 class ExtendedApproval(Extension):
@@ -270,30 +285,14 @@ class ExtendedApproval(Extension):
         DashboardColumnsHook(self, columns)
         SignalHook(self, review_request_published, self.on_published)
         SignalHook(self, review_publishing, self.on_review_publishing)
-
-        self._replace_action(AdvancedShipItAction(self.settings))
+        HideActionHook(self, action_ids=['ship-it'])
+        ActionHook(self, actions=[
+            AdvancedShipItAction(self.settings),
+            AdvancedPingItAction(self.settings),
+        ])
 
     def shutdown(self):
         super(ExtendedApproval, self).shutdown()
-        self._replace_action(ShipItAction())
-
-    def _replace_action(self, action):
-        top_actions = []
-        for x in get_top_level_actions():
-            top_actions.append(x)
-
-        for x in top_actions:
-            x.unregister()
-
-        new_actions = []
-        for x in get_default_actions():
-            if x.action_id == action.action_id:
-                new_actions.append(action)
-            else:
-                new_actions.append(x)
-
-        for x in reversed(new_actions):
-            x.register()
 
     def _revoke_shipits(self, reviews, request):
         for r in reviews:
