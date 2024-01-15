@@ -237,9 +237,10 @@ class AdvancedShipItAction(ShipItAction):
         self.settings = settings
 
     def should_render(self, context):
-        user = context['request'].user
-        review_request = context['review_request']
-        return not shipit_forbidden(self.settings, user, review_request)
+        return (super().should_render(context=context) and
+                not shipit_forbidden(self.settings,
+                                     context['request'].user,
+                                     context['review_request']))
 
 
 class AdvancedPingItAction(ShipItAction):
@@ -255,9 +256,10 @@ class AdvancedPingItAction(ShipItAction):
         self.settings = settings
 
     def should_render(self, context):
-        user = context['request'].user
-        review_request = context['review_request']
-        return shipit_forbidden(self.settings, user, review_request)
+        return (super().should_render(context=context) and
+                shipit_forbidden(self.settings,
+                                 context['request'].user,
+                                 context['review_request']))
 
 
 class ExtendedApproval(Extension):
