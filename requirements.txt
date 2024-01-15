@@ -1,2 +1,2 @@
-reviewboard>=3.0
+reviewboard>=6.0
 flake8
