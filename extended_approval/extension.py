@@ -7,6 +7,7 @@ from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
+from reviewboard.admin.read_only import is_site_read_only_for
 from reviewboard.extensions.base import Extension
 from reviewboard.extensions.hooks import (ActionHook,
                                           DataGridColumnsHook,
@@ -15,15 +16,19 @@ from reviewboard.extensions.hooks import (ActionHook,
                                           ReviewRequestApprovalHook,
                                           SignalHook)
 from reviewboard.datagrids.grids import ReviewRequestDataGrid
-from reviewboard.reviews.actions import ShipItAction
+from reviewboard.reviews.actions import (BaseAction, ShipItAction)
+from reviewboard.reviews.features import general_comments_feature
 from reviewboard.reviews.signals import (review_publishing,
                                          review_request_published)
+from reviewboard.urls import reviewable_url_names, review_request_url_names
 
+all_review_request_url_names = reviewable_url_names + review_request_url_names
 
 CONFIG_GRACE_PERIOD_DIFFSET = 'grace_period_diffset'
 CONFIG_GRACE_PERIOD_SHIPIT = 'grace_period_shipit'
 CONFIG_ENABLE_REVOKE_SHIPITS = 'enable_revoke_shipits'
 CONFIG_ENABLE_TARGET_SHIPITS = 'enable_target_shipits'
+CONFIG_ENABLE_LEGACY_BUTTONS = 'enable_legacy_buttons'
 CONFIG_FORBIDDEN_USER_SHIPITS = 'forbidden_user_shipits'
 
 
@@ -262,6 +267,72 @@ class AdvancedPingItAction(ShipItAction):
                                  context['review_request']))
 
 
+class AdvancedLegacyEditReviewAction(BaseAction):
+    action_id = 'advanced-legacy-edit-review'
+    label = _('Review')
+    apply_to = all_review_request_url_names
+    js_view_class = 'RB.CreateReviewActionView'
+
+    def __init__(self, settings):
+        super(AdvancedLegacyEditReviewAction, self).__init__()
+        self.settings = settings
+
+    def should_render(self, context):
+        request = context['request']
+        user = request.user
+        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
+                super().should_render(context=context) and
+                user.is_authenticated and
+                not is_site_read_only_for(user))
+
+
+class AdvancedLegacyAddGeneralCommentAction(BaseAction):
+    action_id = 'advanced-legacy-add-general-comment'
+    label = _('Add General Comment')
+    apply_to = all_review_request_url_names
+    js_view_class = 'RB.AddGeneralCommentActionView'
+
+    def __init__(self, settings):
+        super(AdvancedLegacyAddGeneralCommentAction, self).__init__()
+        self.settings = settings
+
+    def should_render(self, context):
+        request = context['request']
+        user = request.user
+        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
+                super().should_render(context=context) and
+                user.is_authenticated and
+                not is_site_read_only_for(user) and
+                general_comments_feature.is_enabled(request=request))
+
+
+class AdvancedLegacyShipItAction(BaseAction):
+    action_id = 'advanced-legacy-ship-it'
+    apply_to = all_review_request_url_names
+    js_view_class = 'RB.ShipItActionView'
+
+    def __init__(self, settings):
+        super(AdvancedLegacyShipItAction, self).__init__()
+        self.settings = settings
+
+    def get_label(self, context):
+        user = context['request'].user
+        review_request = context['review_request']
+
+        if shipit_forbidden(self.settings, user, review_request):
+            return _('Ping It!')
+
+        return ShipItAction.label
+
+    def should_render(self, context):
+        request = context['request']
+        user = request.user
+        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
+                super().should_render(context=context) and
+                user.is_authenticated and
+                not is_site_read_only_for(user))
+
+
 class ExtendedApproval(Extension):
     metadata = {
         'Name': 'Extended Approval',
@@ -276,6 +347,7 @@ class ExtendedApproval(Extension):
         CONFIG_GRACE_PERIOD_SHIPIT: 15,
         CONFIG_ENABLE_REVOKE_SHIPITS: False,
         CONFIG_ENABLE_TARGET_SHIPITS: False,
+        CONFIG_ENABLE_LEGACY_BUTTONS: False,
         CONFIG_FORBIDDEN_USER_SHIPITS: '',
     }
 
@@ -291,6 +363,9 @@ class ExtendedApproval(Extension):
         ActionHook(self, actions=[
             AdvancedShipItAction(self.settings),
             AdvancedPingItAction(self.settings),
+            AdvancedLegacyEditReviewAction(self.settings),
+            AdvancedLegacyAddGeneralCommentAction(self.settings),
+            AdvancedLegacyShipItAction(self.settings),
         ])
 
     def shutdown(self):

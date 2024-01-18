@@ -22,6 +22,11 @@ class ExtendedApprovalSettingsForm(SettingsForm):
         help_text=('Do not accept ShipIts if the user is not in '
                    'review group/people.'))
 
+    enable_legacy_buttons = BooleanField(
+        required=False,
+        label='Show legacy buttons on review request',
+        help_text=('Shows old "Review", "General Comment" and "ShipIt".'))
+
     forbidden_user_shipits = CharField(
         required=False,
         label='User who can never ShipIt',
