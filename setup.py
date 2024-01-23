@@ -19,12 +19,7 @@ setup(
         'reviewboard.extensions':
             '%s = extended_approval.extension:ExtendedApproval' % PACKAGE,
     },
-    package_data={
-        'extended_approval': [
-            'templates/extended_approval/*.txt',
-            'templates/extended_approval/*.html',
-        ],
-    },
+
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Framework :: Review Board',

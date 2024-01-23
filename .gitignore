@@ -1,7 +1,7 @@
 __pycache__/
 *.py[cod]
 *.whl
-
+.vscode
 build/
 dist/
 *.egg-info*/

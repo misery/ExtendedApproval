@@ -29,6 +29,7 @@ CONFIG_GRACE_PERIOD_SHIPIT = 'grace_period_shipit'
 CONFIG_ENABLE_REVOKE_SHIPITS = 'enable_revoke_shipits'
 CONFIG_ENABLE_TARGET_SHIPITS = 'enable_target_shipits'
 CONFIG_ENABLE_LEGACY_BUTTONS = 'enable_legacy_buttons'
+CONFIG_ENABLE_WAIT_IT_BUTTON = 'enable_wait_it_button'
 CONFIG_FORBIDDEN_USER_SHIPITS = 'forbidden_user_shipits'
 
 
@@ -333,12 +334,42 @@ class AdvancedLegacyShipItAction(BaseAction):
                 not is_site_read_only_for(user))
 
 
+class AdvancedLegacyWaitItAction(BaseAction):
+    action_id = 'advanced-legacy-wait-it'
+    label = _('Wait It!')
+    apply_to = all_review_request_url_names
+    js_view_class = 'ExtendedApprovalExtension.ActionView'
+
+    def __init__(self, settings):
+        super(AdvancedLegacyWaitItAction, self).__init__()
+        self.settings = settings
+
+    def should_render(self, context):
+        request = context['request']
+        user = request.user
+        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
+                self.settings.get(CONFIG_ENABLE_WAIT_IT_BUTTON) and
+                super().should_render(context=context) and
+                user.is_authenticated and
+                not is_site_read_only_for(user) and
+                not shipit_forbidden(self.settings,
+                                     user,
+                                     context['review_request']))
+
+
 class ExtendedApproval(Extension):
     metadata = {
         'Name': 'Extended Approval',
         'Summary': 'Set approval state and show it as dashboard column',
         'Author': 'Andre Klitzing',
         'Author-email': 'aklitzing@gmail.com'
+    }
+    js_bundles = {
+        'default': {
+            'source_filenames': (
+                'js/extension.js',
+            ),
+        }
     }
 
     is_configurable = True
@@ -348,6 +379,7 @@ class ExtendedApproval(Extension):
         CONFIG_ENABLE_REVOKE_SHIPITS: False,
         CONFIG_ENABLE_TARGET_SHIPITS: False,
         CONFIG_ENABLE_LEGACY_BUTTONS: False,
+        CONFIG_ENABLE_WAIT_IT_BUTTON: False,
         CONFIG_FORBIDDEN_USER_SHIPITS: '',
     }
 
@@ -366,6 +398,7 @@ class ExtendedApproval(Extension):
             AdvancedLegacyEditReviewAction(self.settings),
             AdvancedLegacyAddGeneralCommentAction(self.settings),
             AdvancedLegacyShipItAction(self.settings),
+            AdvancedLegacyWaitItAction(self.settings),
         ])
 
     def shutdown(self):
