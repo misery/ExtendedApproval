@@ -902,7 +902,7 @@ class MercurialRevision(BaseRevision):
 
             d = self.json['date']
             offset = d[1] * -1
-            d = dt.datetime.utcfromtimestamp(d[0] + offset)
+            d = dt.datetime.fromtimestamp(d[0] + offset, dt.UTC)
             d = d.replace(tzinfo=Offset(offset))
             self._date = d.isoformat(str(' '))
 
