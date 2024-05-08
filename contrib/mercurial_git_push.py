@@ -572,7 +572,7 @@ class BaseReviewRequest(object):
         commits = diff.get_draft_commits()
         commits.upload_commit(validation_info=v,
                               commit_id=self.node(),
-                              commit_message=self.summary(),
+                              commit_message=self._changeset.desc(),
                               parent_id=self.parent(),
                               parent_diff=d.getParentDiff(),
                               diff=d.getDiff(),
