@@ -403,10 +403,6 @@ class BaseReviewRequest(object):
         """
         return None if self.request is None else self.request.id
 
-    def graft(self, short=True):
-        """Return changeset as hex node."""
-        return self._changeset.graft(short)
-
     def node(self, short=True):
         """Return changeset as hex node."""
         return self._changeset.node(short)
@@ -744,7 +740,7 @@ class MercurialReviewRequest(BaseReviewRequest):
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
 
-        graft = self.graft(False)
+        graft = self._changeset.graft(False)
         if graft:
             if six.PY2:
                 content.append(graft)
