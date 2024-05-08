@@ -444,13 +444,19 @@ class BaseReviewRequest(object):
 
     def info(self):
         if self._info is None:
+            if self.request.created_with_history:
+                graft = ''
+                node = ''
+            else:
+                graft = '[graft: {graft}] '
+                node = self.node()
+
             template = ('```{author} ({date}) [{node}] '
-                        '[{branch}] [graft: {graft}] '
+                        '[{branch}] ' + graft +
                         '[topic: {topic}]'
                         '```\n\n{desc}')
 
             desc = self._replace_hashes(self._changeset.desc())
-            node = '' if self.request.created_with_history else self.node()
             self._info = template.format(author=self._changeset.author(),
                                          date=self._changeset.date(),
                                          node=node,
