@@ -991,14 +991,17 @@ class MercurialRevision(BaseRevision):
                        with_errors=False,
                        results_unicode=False)
 
+    def isMerge(self):
+        return len(self.json['parents']) == 2
+
     def merges(self):
         """Get all changeset of this merge change.
 
         If this is a merge changeset we can fetch
         all changesets that will be merged.
         """
-        p = self.json['parents']
-        if len(p) == 2 and self._merges is None:
+        if self.isMerge() and self._merges is None:
+            p = self.json['parents']
             revset = 'ancestors({p2}) and ' \
                      '(children(ancestor(ancestor({p1}, {p2}),' \
                      '{node}))::' \
@@ -1108,13 +1111,16 @@ class GitRevision(BaseRevision):
         entry = '%s:%s' % (self.node(False), filename)
         return execute(['git', 'show', entry])
 
+    def isMerge(self):
+        return len(self._parent) > 1
+
     def merges(self):
         """Get all changeset of this merge change.
 
         If this is a merge changeset we can fetch
         all changesets that will be merged.
         """
-        if self._merges is None and len(self._parent) > 1:
+        if self.isMerge() and self._merges is None:
             self._merges = GitRevision.fetch(self._hash,
                                              self._parent[0],
                                              skipKnown=False)
