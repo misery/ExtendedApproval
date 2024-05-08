@@ -884,7 +884,7 @@ class BaseRevision(object):
 
     def mail(self):
         mail = re.search(r'<(.*)>', self.author())
-        return mail.group(1) if mail and mail.group(1) else None
+        return mail.group(1).strip() if mail and mail.group(1) else None
 
     def authorName(self):
         return re.sub(r'<.*>', '', self.author()).strip()
