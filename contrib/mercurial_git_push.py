@@ -446,7 +446,9 @@ class BaseReviewRequest(object):
     def info(self):
         if self._info is None:
             template = ('```{author} ({date}) [{node}] '
-                        '[{branch}] [graft: {graft}]```\n\n{desc}')
+                        '[{branch}] [graft: {graft}] '
+                        '[topic: {topic}]'
+                        '```\n\n{desc}')
 
             desc = self._replace_hashes(self._changeset.desc())
             self._info = template.format(author=self._changeset.author(),
@@ -454,6 +456,7 @@ class BaseReviewRequest(object):
                                          node=self.node(),
                                          branch=self.branch(),
                                          graft=self._changeset.graft(),
+                                         topic=self._changeset.topic(),
                                          desc=desc)
             merges = self._changeset.merges()
             if merges:
@@ -864,6 +867,12 @@ class MercurialRevision(BaseRevision):
         self._graft_source = None
         self._raw_data = None
 
+    def topic(self):
+        if 'extra' in self.json and 'topic' in self.json['extra']:
+            return self.json['extra']['topic']
+
+        return None
+
     def graft(self, short=True):
         if self._graft_source is None:
             self._graft_source = ''
@@ -1014,6 +1023,9 @@ class GitRevision(BaseRevision):
 
     def signId(self):
         return self._sign_id
+
+    def topic(self):
+        return None
 
     def graft(self):
         return None
