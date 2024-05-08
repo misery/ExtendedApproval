@@ -123,11 +123,15 @@ from functools import partial
 from rbtools import __version__ as rbversion
 from rbtools.clients.git import GitClient
 from rbtools.clients.mercurial import MercurialClient
-from rbtools.commands import Command
 from rbtools.hooks.common import HookError
 from rbtools.utils.filesystem import is_exe_in_path
 from rbtools.utils.process import execute
 from rbtools.utils.users import get_authenticated_session
+
+try:
+    from rbtools.commands.base import BaseCommand
+except ImportError:
+    from rbtools.commands import Command as BaseCommand
 
 MAX_MERGE_ENTRIES = 30
 
@@ -309,7 +313,7 @@ class BaseDiffer(object):
 class MercurialDiffer(BaseDiffer):
     def __init__(self, root, cmd):
         if rbversion >= '1.0.4':
-            tool = MercurialClient(HG)
+            tool = MercurialClient(executable=HG)
         else:
             tool = MercurialClient()
 
@@ -856,13 +860,13 @@ class GitReviewRequest(BaseReviewRequest):
                                            self.request.id)
 
 
-class MercurialGitHookCmd(Command):
+class MercurialGitHookCmd(BaseCommand):
     """Helper to parse configuration from .reviewboardrc file."""
 
     name = 'MercurialGitHook'
     needs_api = True
     option_list = [
-        Command.server_options,
+        BaseCommand.server_options,
     ]
 
     def __init__(self):
