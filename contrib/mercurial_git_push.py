@@ -369,6 +369,7 @@ class BaseReviewRequest(object):
         self._web_node_regex = re.compile(r'\b([0-9|a-f]{40}|[0-9|a-f]{12})\b')
         self._web_backref = r'[\g<0>]({0}\g<0>)'.format(web.format('')) if web else None
         self._info = None
+        self._use_history = False  # if rbversion >= '2'
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
         if not regex:
@@ -548,6 +549,38 @@ class BaseReviewRequest(object):
     def _update_attachments(self):
         return None
 
+    def _update_with_history(self, d, diffs):
+        diff = diffs.create_empty(base_commit_id=d.getBaseCommitId(),
+                                  only_fields='',
+                                  only_links='self,draft_commits')
+
+        validator = self.root.get_commit_validation()
+        v = validator.validate_commit(repository=self.repo,
+                                      diff=d.getDiff(),
+                                      commit_id=self.node(),
+                                      parent_id=self.parent(),
+                                      parent_diff=d.getParentDiff(),
+                                      base_commit_id=d.getBaseCommitId())
+
+        v = v.validation_info
+        commits = diff.get_draft_commits()
+        commits.upload_commit(validation_info=v,
+                              commit_id=self.node(),
+                              commit_message=self.summary(),
+                              parent_id=self.parent(),
+                              parent_diff=d.getParentDiff(),
+                              diff=d.getDiff(),
+                              author_name=self._changeset.authorName(),
+                              author_email=self._changeset.mail(),
+                              author_date=self._changeset.date(),
+                              # committer_name=self.submitter,
+                              # committer_email=,
+                              # committer_date=self._changeset.date()
+                              )
+        diff.finalize_commit_series(cumulative_diff=d.getDiff(),
+                                    validation_info=v,
+                                    parent_diff=d.getParentDiff())
+
     def _update(self):
         """Update review request draft based on changeset."""
         self.approved = False
@@ -560,9 +593,13 @@ class BaseReviewRequest(object):
             diffs = draft.get_draft_diffs(only_links='upload_diff',
                                           only_fields='')
             d = self.diff_info
-            diffs.upload_diff(diff=d.getDiff(),
-                              parent_diff=d.getParentDiff(),
-                              base_commit_id=d.getBaseCommitId())
+
+            if self.request.created_with_history:
+                self._update_with_history(d, diffs)
+            else:
+                diffs.upload_diff(diff=d.getDiff(),
+                                  parent_diff=d.getParentDiff(),
+                                  base_commit_id=d.getBaseCommitId())
 
             # re-fetch diffset to get id
             diff = draft.get_draft_diffs(only_links='', only_fields='id')
@@ -598,6 +635,7 @@ class BaseReviewRequest(object):
                                           only_links='create')
         return c.create(commit_id=self.commit_id,
                         repository=self.repo,
+                        create_with_history=self._use_history,
                         submit_as=self.submitter)
 
     def _modified_description(self):
@@ -653,7 +691,7 @@ class BaseReviewRequest(object):
             otherwise None.
         """
         fields = ('summary,approved,approval_failure,id,commit_id,'
-                  'branch,description,extra_data')
+                  'branch,description,extra_data,created_with_history')
         links = 'submitter,update,latest_diff,draft,file_attachments'
 
         reqs = self.root.get_review_requests(repository=self.repo,
@@ -841,6 +879,13 @@ class BaseRevision(object):
             if len(self._summary) > 150:
                 self._summary = self._summary[0:150] + ' ...'
         return self._summary
+
+    def mail(self):
+        mail = re.search(r'<(.*)>', self.author())
+        return mail.group(1) if mail and mail.group(1) else None
+
+    def authorName(self):
+        return re.sub(r'<.*>', '', self.author()).strip()
 
 
 class MercurialRevision(BaseRevision):
