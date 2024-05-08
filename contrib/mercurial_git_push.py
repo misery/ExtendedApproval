@@ -407,10 +407,6 @@ class BaseReviewRequest(object):
         """Return changeset as hex node."""
         return self._changeset.graft(short)
 
-    def parent(self):
-        """Return changeset as hex node."""
-        return self._changeset.parent()
-
     def node(self, short=True):
         """Return changeset as hex node."""
         return self._changeset.node(short)
@@ -564,7 +560,7 @@ class BaseReviewRequest(object):
         v = validator.validate_commit(repository=self.repo,
                                       diff=d.getDiff(),
                                       commit_id=self.node(),
-                                      parent_id=self.parent(),
+                                      parent_id=self._changeset.parent(),
                                       parent_diff=d.getParentDiff(),
                                       base_commit_id=d.getBaseCommitId())
 
@@ -573,7 +569,7 @@ class BaseReviewRequest(object):
         commits.upload_commit(validation_info=v,
                               commit_id=self.node(),
                               commit_message=self._changeset.desc(),
-                              parent_id=self.parent(),
+                              parent_id=self._changeset.parent(),
                               parent_diff=d.getParentDiff(),
                               diff=d.getDiff(),
                               author_name=self._changeset.authorName(),
@@ -813,7 +809,7 @@ class MercurialReviewRequest(BaseReviewRequest):
         - A commit for new branch: "hg branch" and "hg push --new-branch"
         - A commit to close a branch: "hg commit --close-branch"
         """
-        self.diff_info = self._differ.diff(self.parent(),
+        self.diff_info = self._differ.diff(self._changeset.parent(),
                                            self.node(False),
                                            self.base,
                                            self.request.id)
