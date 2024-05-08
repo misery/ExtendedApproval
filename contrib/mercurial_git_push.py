@@ -450,9 +450,10 @@ class BaseReviewRequest(object):
                         '```\n\n{desc}')
 
             desc = self._replace_hashes(self._changeset.desc())
+            node = '' if self.request.created_with_history else self.node()
             self._info = template.format(author=self._changeset.author(),
                                          date=self._changeset.date(),
-                                         node=self.node(),
+                                         node=node,
                                          branch=self.branch(),
                                          graft=self._changeset.graft(),
                                          topic=self._changeset.topic(),
@@ -643,7 +644,7 @@ class BaseReviewRequest(object):
         regex = (r'\([0-9]{4}-[0-9]{2}-[0-9]{2} '
                  r'[0-9]{2}:[0-9]{2}:[0-9]{2}'
                  r'[\s]{0,1}[+-][0-9]{2}[:]{0,1}[0-9]{2}\) '
-                 r'\[[0-9|a-z]+\]')
+                 r'\[[0-9|a-z]*\]')
         regex = re.compile(regex)
 
         old = self.request.description
