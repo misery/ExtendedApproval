@@ -376,7 +376,7 @@ class BaseReviewRequest(object):
             r'[\g<0>]({0}\g<0>)'.format(web.format('')) if web else None
         )
         self._info = None
-        self._use_history = False  # if rbversion >= '2'
+        self._use_history = False
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
         if not regex:
@@ -1573,6 +1573,8 @@ def set_topic_usage():
     TOPIC = 'HG_USERVAR_TOPIC'
     if TOPIC in os.environ:
         USE_TOPICS = os.environ[TOPIC].lower() in ('true', 'on')
+
+    USE_TOPICS = USE_TOPICS and rbversion >= '2'
 
 
 def hook(stdin=None):
