@@ -149,6 +149,7 @@ new file mode 100644
 '''
 
 HG = 'hg'
+USE_TOPICS = False
 
 
 def get_ticket_refs(text, prefixes=None):
@@ -1283,8 +1284,40 @@ class BaseHook(object):
 
         return self._handle_changeset_list_process(node, changesets)
 
+    def _get_changeset_topics(self, changesets):
+        if USE_TOPICS:
+            topicchanges = {}
+            nontopicchanges = []
+            currentTopic = None
+            for changeset in changesets:
+                if changeset.topic():
+                    if currentTopic is None:
+                        currentTopic = changeset.topic()
+                    elif currentTopic != changeset.topic():
+                        if changeset.topic() in topicchanges:
+                            raise HookError('Topic is out of order: %s'
+                                            % currentTopic)
+                        currentTopic = changeset.topic()
+
+                    if currentTopic in topicchanges:
+                        topicchanges[currentTopic].append(changeset)
+                    else:
+                        topicchanges[currentTopic] = [changeset]
+                else:
+                    nontopicchanges.append(changeset)
+
+            return (topicchanges, nontopicchanges)
+        else:
+            return ([], changesets)
+
     def _handle_changeset_list_process(self, node, changesets):
         revreqs = []
+        topicchanges, changesets = self._get_changeset_topics(changesets)
+        for topic in topicchanges:
+            self.log("Found topic '%s' with %d changeset(s)",
+                     topic,
+                     len(topicchanges[topic]))
+
         for changeset in changesets:
             request = self.review_request_class(self.root,
                                                 self.repo_id,
@@ -1535,12 +1568,21 @@ def get_logging_level(logging):
     return logging.INFO
 
 
+def set_topic_usage():
+    global USE_TOPICS
+    TOPIC = 'HG_USERVAR_TOPIC'
+    if TOPIC in os.environ:
+        USE_TOPICS = os.environ[TOPIC].lower() in ('true', 'on')
+
+
 def hook(stdin=None):
     import logging
 
     logging.basicConfig(format='%(levelname)s: %(message)s',
                         level=get_logging_level(logging))
     logger = logging.getLogger('reviewboardhook')
+
+    set_topic_usage()
 
     try:
         log = partial(logger.info)
