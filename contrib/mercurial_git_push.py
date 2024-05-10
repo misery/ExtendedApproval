@@ -336,7 +336,7 @@ class GitDiffer(BaseDiffer):
 class BaseReviewRequest(object):
     """A class to represent a review request from a Mercurial hook."""
 
-    def __init__(self, root, repo, changeset, base, submitter, differ, web):
+    def __init__(self, root, repo, changesets, base, submitter, differ, web):
         """Initialize object with the given information.
 
         Args:
@@ -346,8 +346,8 @@ class BaseReviewRequest(object):
             repo (int):
                 An ID of repository.
 
-            changeset (object of MercurialRevision):
-                An object of MercurialRevision.
+            changesets (list of MercurialRevisions):
+                A list of MercurialRevision objects.
 
             base (unicode):
                 A revision of parent changeset.
@@ -364,7 +364,8 @@ class BaseReviewRequest(object):
         self.root = root
         self.repo = repo
         self.submitter = submitter
-        self._changeset = changeset
+        self._changesets = changesets
+        self._check_changesets()
         self.base = base
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
@@ -376,7 +377,6 @@ class BaseReviewRequest(object):
             r'[\g<0>]({0}\g<0>)'.format(web.format('')) if web else None
         )
         self._info = None
-        self._use_history = False
 
         regex = os.environ.get('HOOK_FILE_UPLOAD_REGEX')
         if not regex:
@@ -404,29 +404,36 @@ class BaseReviewRequest(object):
         """
         return None if self.request is None else self.request.id
 
-    def node(self, short=True):
-        """Return changeset as hex node."""
-        return self._changeset.node(short)
+    def nodes(self, short=True):
+        """Return changeset(s) as hex node."""
+        nodes = []
+        for changeset in self._changesets:
+            nodes.append(changeset.node(short))
+        return ','.join(nodes)
 
     def branch(self):
-        """Return branch of changeset."""
-        return self._changeset.branch()
+        """Return branch of changeset(s)."""
+        return self._changesets[0].branch()
 
     def summary(self):
-        return self._changeset.summary()
+        if len(self._changesets) > 1:
+            return "Topic: " + self._changesets[0].topic()
+        else:
+            return self._changesets[0].summary()
 
     def skippable(self):
         if self._skippable is None:
             regex = r'Reviewed at https://'
 
-            if self.summary().startswith('SKIP'):
-                self._skippable = True
-                self.failure = 'Starts with SKIP'
-            elif re.search(regex, self._changeset.desc()):
-                self._skippable = True
-                self.failure = 'Description contains: "%s"' % regex
-            else:
-                self._skippable = False
+            for changeset in self._changesets:
+                if changeset.summary().startswith('SKIP'):
+                    self._skippable = True
+                    self.failure = 'Starts with SKIP'
+                elif re.search(regex, changeset.desc()):
+                    self._skippable = True
+                    self.failure = 'Description contains: "%s"' % regex
+                else:
+                    self._skippable = False
 
         return self._skippable
 
@@ -444,32 +451,29 @@ class BaseReviewRequest(object):
         return (rev, text_type)
 
     def info(self):
-        if self._info is None:
-            if self.request.created_with_history:
-                graft = ''
-                node = ''
-            else:
-                graft = '[graft: {graft}] '
-                node = self.node()
+        if self.request.created_with_history:
+            return self.summary()
 
+        if self._info is None:
             template = ('```{author} ({date}) [{node}] '
-                        '[{branch}] ' + graft +
+                        '[{branch}] [graft: {graft}] '
                         '[topic: {topic}]'
                         '```\n\n{desc}')
 
-            desc = self._replace_hashes(self._changeset.desc())
-            self._info = template.format(author=self._changeset.author(),
-                                         date=self._changeset.date(),
-                                         node=node,
+            changeset = self._changesets[0]
+            desc = self._replace_hashes(changeset.desc())
+            self._info = template.format(author=changeset.author(),
+                                         date=changeset.date(),
+                                         node=self.nodes(),
                                          branch=self.branch(),
-                                         graft=self._changeset.graft(),
-                                         topic=self._changeset.topic(),
+                                         graft=changeset.graft(),
+                                         topic=changeset.topic(),
                                          desc=desc)
-            merges = self._changeset.merges()
+            merges = changeset.merges()
             if merges:
                 self._info += '\n\n\n'
 
-                files = self._changeset.files()
+                files = changeset.files()
                 self._info += '# Touched %d file(s) by this merge ' \
                               'changeset\n' % len(files)
                 for entry in files:
@@ -535,6 +539,22 @@ class BaseReviewRequest(object):
 
         self._update()
 
+    def _check_changesets(self):
+        if len(self._changesets) == 1:
+            return
+
+        branch = None
+        for changeset in self._changesets:
+            if changeset.isMerge():
+                raise HookError('Topic changeset is a merge: '
+                                '%s' % changeset.node())
+
+            if branch is None:
+                branch = changeset.branch()
+            elif changeset.branch() != branch:
+                raise HookError('Topic changesets uses multiple branches: '
+                                '%s / %s' % (branch, changeset.branch()))
+
     def _diff_up_to_date(self):
         """Return modified state of diff.
 
@@ -559,33 +579,42 @@ class BaseReviewRequest(object):
         diff = diffs.create_empty(base_commit_id=d.getBaseCommitId(),
                                   only_fields='',
                                   only_links='self,draft_commits')
-
-        validator = self.root.get_commit_validation()
-        v = validator.validate_commit(repository=self.repo,
-                                      diff=d.getDiff(),
-                                      commit_id=self.node(),
-                                      parent_id=self._changeset.parent(),
-                                      parent_diff=d.getParentDiff(),
-                                      base_commit_id=d.getBaseCommitId())
-
-        v = v.validation_info
+        v = None
         commits = diff.get_draft_commits()
-        commits.upload_commit(validation_info=v,
-                              commit_id=self.node(),
-                              commit_message=self._changeset.desc(),
-                              parent_id=self._changeset.parent(),
-                              parent_diff=d.getParentDiff(),
-                              diff=d.getDiff(),
-                              author_name=self._changeset.authorName(),
-                              author_email=self._changeset.mail(),
-                              author_date=self._changeset.date(),
-                              # committer_name=self.submitter,
-                              # committer_email=,
-                              # committer_date=self._changeset.date()
-                              )
+        validator = self.root.get_commit_validation()
+        for changeset in self._changesets:
+            change_d = self._differ.diff(changeset.parent(),
+                                         changeset.node(False),
+                                         self.base,
+                                         self.request.id)
+
+            v = validator.validate_commit(repository=self.repo,
+                                          diff=change_d.getDiff(),
+                                          commit_id=changeset.node(False),
+                                          parent_id=changeset.parent(),
+                                          parent_diff=d.getParentDiff(),
+                                          base_commit_id=d.getBaseCommitId(),
+                                          validation_info=v
+                                          ).validation_info
+
+            commits.upload_commit(validation_info=v,
+                                  commit_id=changeset.node(False),
+                                  commit_message=changeset.desc(),
+                                  parent_id=changeset.parent(),
+                                  parent_diff=d.getParentDiff(),
+                                  diff=change_d.getDiff(),
+                                  author_name=changeset.authorName(),
+                                  author_email=changeset.mail(),
+                                  author_date=changeset.date(),
+                                  # committer_name=self.submitter,
+                                  # committer_email=,
+                                  # committer_date=changeset.date()
+                                  )
+
         diff.finalize_commit_series(cumulative_diff=d.getDiff(),
                                     validation_info=v,
-                                    parent_diff=d.getParentDiff())
+                                    parent_diff=d.getParentDiff()
+                                    )
 
     def _update(self):
         """Update review request draft based on changeset."""
@@ -603,6 +632,11 @@ class BaseReviewRequest(object):
             if self.request.created_with_history:
                 self._update_with_history(d, diffs)
             else:
+                if len(self._changesets) > 1:
+                    raise HookError('Cannot use ReviewRequest '
+                                    'with multiple changesets: %d'
+                                    % self.request.id)
+
                 diffs.upload_diff(diff=d.getDiff(),
                                   parent_diff=d.getParentDiff(),
                                   base_commit_id=d.getBaseCommitId())
@@ -610,12 +644,14 @@ class BaseReviewRequest(object):
             # re-fetch diffset to get id
             diff = draft.get_draft_diffs(only_links='', only_fields='id')
             extra_data = {'extra_data.diff_hash': d.getHash(diff[0].id)}
-            if rbversion >= '1.0.3':
+            if rbversion >= '1.0.3' and not self.request.created_with_history:
                 extra_data['extra_data.file_hashes'] = \
                                                      self._update_attachments()
 
-        refs = [six.text_type(x)
-                for x in get_ticket_refs(self._changeset.desc())]
+        refs = []
+        for changeset in self._changesets:
+            refs.extend([six.text_type(x)
+                        for x in get_ticket_refs(changeset.desc())])
         bugs = ','.join(refs)
 
         draft.update(summary=self.summary(),
@@ -639,9 +675,10 @@ class BaseReviewRequest(object):
         """
         c = self.root.get_review_requests(only_fields='',
                                           only_links='create')
+
         return c.create(commit_id=self.commit_id,
                         repository=self.repo,
-                        create_with_history=self._use_history,
+                        create_with_history=len(self._changesets) > 1,
                         submit_as=self.submitter)
 
     def _modified_description(self):
@@ -661,16 +698,21 @@ class BaseReviewRequest(object):
     def _commit_id_data(self):
         content = []
 
-        content.append(self._changeset.author().encode('utf-8'))
-        content.append(self._changeset.date().encode('utf-8'))
-        content.append(six.text_type(self.repo).encode('utf-8'))
+        if len(self._changesets) > 1:
+            content.append(self._changesets[0].topic().encode('utf-8'))
+            content.append(self.submitter.encode('utf-8'))
+            content.append(six.text_type(self.repo).encode('utf-8'))
+        else:
+            content.append(self._changesets[0].author().encode('utf-8'))
+            content.append(self._changesets[0].date().encode('utf-8'))
+            content.append(six.text_type(self.repo).encode('utf-8'))
 
-        s = self.summary()
-        if (s.startswith('[maven-release-plugin]') or
-                s.startswith('Added tag ') or
-                s.startswith('Moved tag ') or
-                s.startswith('Removed tag ')):
-            content.append(s.encode('utf-8'))
+            s = self.summary()
+            if (s.startswith('[maven-release-plugin]') or
+                    s.startswith('Added tag ') or
+                    s.startswith('Moved tag ') or
+                    s.startswith('Removed tag ')):
+                content.append(s.encode('utf-8'))
 
         return content
 
@@ -748,12 +790,13 @@ class MercurialReviewRequest(BaseReviewRequest):
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
 
-        graft = self._changeset.graft(False)
-        if graft:
-            if six.PY2:
-                content.append(graft)
-            else:
-                content.append(bytes(graft, 'ascii'))
+        if len(self._changesets) == 1:
+            graft = self._changesets[0].graft(False)
+            if graft:
+                if six.PY2:
+                    content.append(graft)
+                else:
+                    content.append(bytes(graft, 'ascii'))
 
         return content
 
@@ -771,27 +814,27 @@ class MercurialReviewRequest(BaseReviewRequest):
             existing[entry['caption']] = entry
 
         def modified(filename):
-            d = self._changeset.diffstat()
+            d = self._changesets[0].diffstat()
             return filename in d and d[filename] != '0'
 
         def handle_upload(f):
             e = existing.get(f)
             history = e['attachment_history_id'] if e else None
-            content = self._changeset.file(f)
+            content = self._changesets[0].file(f)
             hashes[f] = self.diff_info.getRawHash(content)
             if f not in stored_hashes or hashes[f] != stored_hashes[f]:
                 a.upload_attachment(f, content, f, history)
 
-        mods = self._changeset.files('{file_mods|json}')
-        adds = self._changeset.files('{file_adds|json}')
+        mods = self._changesets[0].files('{file_mods|json}')
+        adds = self._changesets[0].files('{file_adds|json}')
         foundAttachments = []
         for entry in set(adds + mods):
             if self.regexUpload.match(entry):
                 foundAttachments.append(entry)
 
         if len(foundAttachments) > 0:
-            files = self._changeset.files()  # let's detect deleted files
-            copies = self._changeset.files('{file_copies|json}')
+            files = self._changesets[0].files()  # let's detect deleted files
+            copies = self._changesets[0].files('{file_copies|json}')
             for e in foundAttachments:
                 if e not in files:
                     continue
@@ -813,15 +856,16 @@ class MercurialReviewRequest(BaseReviewRequest):
         - A commit for new branch: "hg branch" and "hg push --new-branch"
         - A commit to close a branch: "hg commit --close-branch"
         """
-        self.diff_info = self._differ.diff(self._changeset.parent(),
-                                           self.node(False),
+        self.diff_info = self._differ.diff(self._changesets[0].parent(),
+                                           self._changesets[-1].node(False),
                                            self.base,
                                            self.request.id)
 
         if self.diff_info.getDiff() is None:
             content = []
-            for data in self._changeset.raw_data():
-                content.append(b'+%s' % data)
+            for changeset in self._changesets:
+                for data in changeset.raw_data():
+                    content.append(b'+%s' % data)
 
             fake_diff = FAKE_DIFF_TEMPL % (len(content) + 5,
                                            b'\n'.join(content))
@@ -849,13 +893,13 @@ class GitReviewRequest(BaseReviewRequest):
         else:
             base = self.base
 
-        if len(self._changeset.parent()) > 0:
-            parent = self.node() + '^1'
+        if len(self._changesets[0].parent()) > 0:
+            parent = self._changesets[0].node(False) + '^1'
         else:
             parent = initialCommit
 
         self.diff_info = self._differ.diff(parent,
-                                           self.node(False),
+                                           self._changesets[0].node(False),
                                            base,
                                            self.request.id)
 
@@ -1311,34 +1355,40 @@ class BaseHook(object):
             return ([], changesets)
 
     def _handle_changeset_list_process(self, node, changesets):
-        revreqs = []
         topicchanges, changesets = self._get_changeset_topics(changesets)
-        for topic in topicchanges:
-            self.log("Found topic '%s' with %d changeset(s)",
-                     topic,
-                     len(topicchanges[topic]))
+        revreqs = []
 
         for changeset in changesets:
-            request = self.review_request_class(self.root,
-                                                self.repo_id,
-                                                changeset,
-                                                self.base,
-                                                self.submitter,
-                                                self._differ,
-                                                self.web)
+            self._handle_changeset_list_process_request([changeset], revreqs)
 
-            if self._check_duplicate(request, revreqs):
-                self.log('Ignoring changeset (%s) as it has a '
-                         'duplicated commit_id or summary: %s | %s',
-                         request.node(),
-                         request.commit_id,
-                         request.summary())
-                return 1
-
-            self._handle_review_request(request)
-            revreqs.append(request)
+        for topic in topicchanges:
+            self.log("Use topic '%s' with %d changeset(s)",
+                     topic,
+                     len(topicchanges[topic]))
+            self._handle_changeset_list_process_request(topicchanges[topic],
+                                                        revreqs)
 
         return self._handle_approved_review_requests(revreqs)
+
+    def _handle_changeset_list_process_request(self, changesets, revreqs):
+        request = self.review_request_class(self.root,
+                                            self.repo_id,
+                                            changesets,
+                                            self.base,
+                                            self.submitter,
+                                            self._differ,
+                                            self.web)
+
+        if self._check_duplicate(request, revreqs):
+            self.log('Ignoring changeset(s) (%s) as it has a '
+                     'duplicated commit_id or summary: %s | %s',
+                     request.nodes(),
+                     request.commit_id,
+                     request.summary())
+            return 1
+
+        self._handle_review_request(request)
+        revreqs.append(request)
 
     def _handle_approved_review_requests(self, revreqs):
         """Handle approved review requests.
@@ -1380,28 +1430,28 @@ class BaseHook(object):
                 A review request object.
         """
         if request.skippable():
-            self.log('Skip changeset: %s | %s',
-                     request.node(), request.failure)
+            self.log('Skip changeset(s): %s | %s',
+                     request.nodes(), request.failure)
             return
 
         if request.exists():
             if request.modified():
                 request.sync()
                 self.log('Updated review request (%d) for '
-                         'changeset: %s', request.id(), request.node())
+                         'changeset(s): %s', request.id(), request.nodes())
             else:
                 if request.approved:
                     self.log('Found approved review request (%d) for '
-                             'changeset: %s', request.id(),
-                             request.node())
+                             'changeset(s): %s', request.id(),
+                             request.nodes())
                 else:
                     self.log('Found unchanged review request (%d) for '
-                             'changeset: %s | %s', request.id(),
-                             request.node(), request.failure)
+                             'changeset(s): %s | %s', request.id(),
+                             request.nodes(), request.failure)
         else:
             request.sync()
             self.log('Created review request (%d) for '
-                     'changeset: %s', request.id(), request.node())
+                     'changeset(s): %s', request.id(), request.nodes())
 
     def push_to_reviewboard(self, node):
         """Run the hook.
