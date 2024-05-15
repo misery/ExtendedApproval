@@ -652,6 +652,8 @@ class BaseReviewRequest(object):
         for changeset in self._changesets:
             refs.extend([six.text_type(x)
                         for x in get_ticket_refs(changeset.desc())])
+        refs = list(set(refs))
+        refs.sort()
         bugs = ','.join(refs)
 
         draft.update(summary=self.summary(),
