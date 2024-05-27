@@ -1617,6 +1617,13 @@ def get_logging_level(logging):
     if DEBUG in os.environ and os.environ[DEBUG].lower() in ('true', 'on'):
         return logging.DEBUG
 
+    GIT_OPT_COUNT = 'GIT_PUSH_OPTION_COUNT'
+    if GIT_OPT_COUNT in os.environ:
+        optionCount = int(os.environ[GIT_OPT_COUNT])
+        for option in range(0, optionCount):
+            if os.environ['GIT_PUSH_OPTION_' + str(option)] == 'DEBUG':
+                return logging.DEBUG
+
     return logging.INFO
 
 
