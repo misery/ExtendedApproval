@@ -523,7 +523,7 @@ class BaseReviewRequest(object):
 
     def close(self):
         """Close the given review request with a message."""
-        rev, text_type = self._markdown_rev(self.node())
+        rev, text_type = self._markdown_rev(self.nodes())
         msg = 'Automatically closed by a push (hook): %s' % rev
         self.request.update(status='submitted',
                             close_description=msg,
