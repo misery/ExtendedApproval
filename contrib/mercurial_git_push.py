@@ -149,7 +149,7 @@ new file mode 100644
 '''
 
 HG = 'hg'
-USE_TOPICS = False
+USE_TOPICS = True
 
 
 def get_ticket_refs(text, prefixes=None):
