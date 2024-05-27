@@ -444,10 +444,16 @@ class BaseReviewRequest(object):
 
     def _markdown_rev(self, rev):
         text_type = 'plain'
+
         if self._web is not None:
             text_type = 'markdown'
-            web = self._web.format(rev)
-            rev = '[{0}]({1})'.format(rev, web)
+            splitChar = ','
+            revs = []
+            for node in rev.split(splitChar):
+                web = self._web.format(node)
+                revs.append('[{0}]({1})'.format(node, web))
+            rev = splitChar.join(revs)
+
         return (rev, text_type)
 
     def info(self):
