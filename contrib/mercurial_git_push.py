@@ -150,6 +150,7 @@ new file mode 100644
 
 HG = 'hg'
 USE_TOPICS = True
+TOPIC = None
 
 
 def get_ticket_refs(text, prefixes=None):
@@ -336,7 +337,8 @@ class GitDiffer(BaseDiffer):
 class BaseReviewRequest(object):
     """A class to represent a review request from a Mercurial hook."""
 
-    def __init__(self, root, repo, changesets, base, submitter, differ, web):
+    def __init__(self, root, repo, changesets, base,
+                 submitter, differ, web, topic):
         """Initialize object with the given information.
 
         Args:
@@ -360,10 +362,14 @@ class BaseReviewRequest(object):
 
             web (unicode, optional):
                 URL to web repository.
+
+            topic (unicode, optional):
+                The name of the topic.
         """
         self.root = root
         self.repo = repo
         self.submitter = submitter
+        self._topic = topic
         self._changesets = changesets
         self._check_changesets()
         self.base = base
@@ -417,7 +423,7 @@ class BaseReviewRequest(object):
 
     def summary(self):
         if len(self._changesets) > 1:
-            return "Topic: " + self._changesets[0].topic()
+            return "Topic: " + self._topic
         else:
             return self._changesets[0].summary()
 
@@ -707,7 +713,7 @@ class BaseReviewRequest(object):
         content = []
 
         if len(self._changesets) > 1:
-            content.append(self._changesets[0].topic().encode('utf-8'))
+            content.append(self._topic.encode('utf-8'))
             content.append(self.submitter.encode('utf-8'))
             content.append(six.text_type(self.repo).encode('utf-8'))
         else:
@@ -786,14 +792,16 @@ class BaseReviewRequest(object):
 
 
 class MercurialReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base, submitter, differ, web):
+    def __init__(self, root, repo, changeset, base,
+                 submitter, differ, web, topic):
         super(MercurialReviewRequest, self).__init__(root,
                                                      repo,
                                                      changeset,
                                                      base,
                                                      submitter,
                                                      differ,
-                                                     web)
+                                                     web,
+                                                     topic)
 
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
@@ -881,14 +889,16 @@ class MercurialReviewRequest(BaseReviewRequest):
 
 
 class GitReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base, submitter, differ, web):
+    def __init__(self, root, repo, changeset, base,
+                 submitter, differ, web, topic):
         super(GitReviewRequest, self).__init__(root,
                                                repo,
                                                changeset,
                                                base,
                                                submitter,
                                                differ,
-                                               web)
+                                               web,
+                                               topic)
 
     def _generate_diff_info(self):
         """Generate the diff if it has been changed."""
@@ -1341,14 +1351,15 @@ class BaseHook(object):
         nontopicchanges = []
         currentTopic = None
         for changeset in changesets:
-            if changeset.topic():
+            topic = changeset.topic() if TOPIC is None else TOPIC
+            if topic:
                 if currentTopic is None:
-                    currentTopic = changeset.topic()
-                elif currentTopic != changeset.topic():
-                    if changeset.topic() in topicchanges:
+                    currentTopic = topic
+                elif currentTopic != topic:
+                    if topic in topicchanges:
                         raise HookError('Topic is out of order: %s'
                                         % currentTopic)
-                    currentTopic = changeset.topic()
+                    currentTopic = topic
 
                 if currentTopic in topicchanges:
                     topicchanges[currentTopic].append(changeset)
@@ -1377,18 +1388,23 @@ class BaseHook(object):
                      topic,
                      len(topicchanges[topic]))
             self._handle_changeset_list_process_request(topicchanges[topic],
-                                                        revreqs)
+                                                        revreqs,
+                                                        topic)
 
         return self._handle_approved_review_requests(revreqs)
 
-    def _handle_changeset_list_process_request(self, changesets, revreqs):
+    def _handle_changeset_list_process_request(self,
+                                               changesets,
+                                               revreqs,
+                                               topic=None):
         request = self.review_request_class(self.root,
                                             self.repo_id,
                                             changesets,
                                             self.base,
                                             self.submitter,
                                             self._differ,
-                                            self.web)
+                                            self.web,
+                                            topic)
 
         if self._check_duplicate(request, revreqs):
             self.log('Ignoring changeset(s) (%s) as it has a '
@@ -1638,9 +1654,14 @@ def get_logging_level(logging):
 
 def set_topic_usage():
     global USE_TOPICS
-    TOPIC = 'HG_USERVAR_TOPIC'
-    if TOPIC in os.environ:
-        USE_TOPICS = os.environ[TOPIC].lower() in ('true', 'on')
+    global TOPIC
+
+    TOPICENV = 'HG_USERVAR_TOPIC'
+    if TOPICENV in os.environ:
+        TOPIC = os.environ[TOPICENV]
+        USE_TOPICS = TOPIC.lower() != 'off'
+        if TOPIC.lower() in ('on', 'off'):
+            TOPIC = None
 
     USE_TOPICS = USE_TOPICS and rbversion >= '2'
 
