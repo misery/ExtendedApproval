@@ -302,7 +302,7 @@ class BaseDiffer(object):
         # Avoid generating of empty parent diff
         # If 'base' and 'parent_base' is the same this is the
         # first new changeset. So there is no parent diff!
-        if revisions['base'] != base:
+        if revisions['base'] != base and base is not None:
             revisions['parent_base'] = base
 
         info = self.tool.diff(revisions=revisions)
@@ -597,7 +597,7 @@ class BaseReviewRequest(object):
         for changeset in self._changesets:
             change_d = self._differ.diff(changeset.parent(),
                                          changeset.node(False),
-                                         self.base,
+                                         None,
                                          self.request.id)
 
             v = validator.validate_commit(repository=self.repo,
