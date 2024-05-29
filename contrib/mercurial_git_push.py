@@ -422,7 +422,7 @@ class BaseReviewRequest(object):
         return self._changesets[0].branch()
 
     def summary(self):
-        if len(self._changesets) > 1:
+        if self._topic:
             return "Topic: " + self._topic
         else:
             return self._changesets[0].summary()
@@ -692,7 +692,7 @@ class BaseReviewRequest(object):
 
         return c.create(commit_id=self.commit_id,
                         repository=self.repo,
-                        create_with_history=len(self._changesets) > 1,
+                        create_with_history=self._topic is not None,
                         submit_as=self.submitter)
 
     def _modified_description(self):
@@ -712,7 +712,7 @@ class BaseReviewRequest(object):
     def _commit_id_data(self):
         content = []
 
-        if len(self._changesets) > 1:
+        if self._topic:
             content.append(self._topic.encode('utf-8'))
             content.append(self.submitter.encode('utf-8'))
             content.append(six.text_type(self.repo).encode('utf-8'))
@@ -806,7 +806,7 @@ class MercurialReviewRequest(BaseReviewRequest):
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
 
-        if len(self._changesets) == 1:
+        if self._topic is None:
             graft = self._changesets[0].graft(False)
             if graft:
                 if six.PY2:
