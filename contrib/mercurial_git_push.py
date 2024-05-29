@@ -375,6 +375,7 @@ class BaseReviewRequest(object):
         self.base = base
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
+        self.diff_info_commits = None
         self._skippable = None
         self._differ = differ
         self._web = web
@@ -595,10 +596,7 @@ class BaseReviewRequest(object):
         commits = diff.get_draft_commits()
         validator = self.root.get_commit_validation()
         for changeset in self._changesets:
-            change_d = self._differ.diff(changeset.parent(),
-                                         changeset.node(False),
-                                         None,
-                                         self.request.id)
+            change_d = self.diff_info_commits[changeset.node(False)]
 
             v = validator.validate_commit(repository=self.repo,
                                           diff=change_d.getDiff(),
@@ -886,6 +884,19 @@ class MercurialReviewRequest(BaseReviewRequest):
             fake_diff = FAKE_DIFF_TEMPL % (len(content) + 5,
                                            b'\n'.join(content))
             self.diff_info.setDiff(fake_diff)
+
+        self.diff_info_commits = {}
+        if self.request.created_with_history:
+            if len(self._changesets) == 1:
+                node = self._changesets[0].node(False)
+                self.diff_info_commits[node] = self.diff_info
+            else:
+                for changeset in self._changesets:
+                    info = self._differ.diff(changeset.parent(),
+                                             changeset.node(False),
+                                             None,
+                                             self.request.id)
+                    self.diff_info_commits[changeset.node(False)] = info
 
 
 class GitReviewRequest(BaseReviewRequest):
