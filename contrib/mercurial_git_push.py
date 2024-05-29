@@ -1336,29 +1336,32 @@ class BaseHook(object):
 
         return self._handle_changeset_list_process(node, changesets)
 
+    def _extract_changeset_topics(self, changesets):
+        topicchanges = {}
+        nontopicchanges = []
+        currentTopic = None
+        for changeset in changesets:
+            if changeset.topic():
+                if currentTopic is None:
+                    currentTopic = changeset.topic()
+                elif currentTopic != changeset.topic():
+                    if changeset.topic() in topicchanges:
+                        raise HookError('Topic is out of order: %s'
+                                        % currentTopic)
+                    currentTopic = changeset.topic()
+
+                if currentTopic in topicchanges:
+                    topicchanges[currentTopic].append(changeset)
+                else:
+                    topicchanges[currentTopic] = [changeset]
+            else:
+                nontopicchanges.append(changeset)
+
+        return (topicchanges, nontopicchanges)
+
     def _get_changeset_topics(self, changesets):
         if USE_TOPICS:
-            topicchanges = {}
-            nontopicchanges = []
-            currentTopic = None
-            for changeset in changesets:
-                if changeset.topic():
-                    if currentTopic is None:
-                        currentTopic = changeset.topic()
-                    elif currentTopic != changeset.topic():
-                        if changeset.topic() in topicchanges:
-                            raise HookError('Topic is out of order: %s'
-                                            % currentTopic)
-                        currentTopic = changeset.topic()
-
-                    if currentTopic in topicchanges:
-                        topicchanges[currentTopic].append(changeset)
-                    else:
-                        topicchanges[currentTopic] = [changeset]
-                else:
-                    nontopicchanges.append(changeset)
-
-            return (topicchanges, nontopicchanges)
+            return self._extract_changeset_topics(changesets)
         else:
             return ([], changesets)
 
