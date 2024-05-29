@@ -568,6 +568,15 @@ class BaseReviewRequest(object):
                 raise HookError('Topic changesets uses multiple branches: '
                                 '%s / %s' % (branch, changeset.branch()))
 
+    def _get_hash(self, diffset_id):
+        if len(self.diff_info_commits) < 2:
+            return self.diff_info.getHash(diffset_id)
+
+        hasher = hashlib.sha256()
+        for info in six.itervalues(self.diff_info_commits):
+            hasher.update(info.getHash(diffset_id).encode('utf-8'))
+        return hasher.hexdigest()
+
     def _diff_up_to_date(self):
         """Return modified state of diff.
 
@@ -583,12 +592,13 @@ class BaseReviewRequest(object):
 
         e = self.request.extra_data
         return ('diff_hash' in e and
-                self.diff_info.getHash(self.diffset_id) == e['diff_hash'])
+                self._get_hash(self.diffset_id) == e['diff_hash'])
 
     def _update_attachments(self):
         return None
 
-    def _update_with_history(self, d, diffs):
+    def _update_with_history(self, diffs):
+        d = self.diff_info
         diff = diffs.create_empty(base_commit_id=d.getBaseCommitId(),
                                   only_fields='',
                                   only_links='self,draft_commits')
@@ -637,23 +647,23 @@ class BaseReviewRequest(object):
         if not self._diff_up_to_date():
             diffs = draft.get_draft_diffs(only_links='upload_diff',
                                           only_fields='')
-            d = self.diff_info
 
             if self.request.created_with_history:
-                self._update_with_history(d, diffs)
+                self._update_with_history(diffs)
             else:
                 if len(self._changesets) > 1:
                     raise HookError('Cannot use ReviewRequest '
                                     'with multiple changesets: %d'
                                     % self.request.id)
 
+                d = self.diff_info
                 diffs.upload_diff(diff=d.getDiff(),
                                   parent_diff=d.getParentDiff(),
                                   base_commit_id=d.getBaseCommitId())
 
             # re-fetch diffset to get id
             diff = draft.get_draft_diffs(only_links='', only_fields='id')
-            extra_data = {'extra_data.diff_hash': d.getHash(diff[0].id)}
+            extra_data = {'extra_data.diff_hash': self._get_hash(diff[0].id)}
             if rbversion >= '1.0.3' and not self.request.created_with_history:
                 extra_data['extra_data.file_hashes'] = \
                                                      self._update_attachments()
