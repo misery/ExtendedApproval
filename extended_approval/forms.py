@@ -39,8 +39,16 @@ class ExtendedApprovalSettingsForm(SettingsForm):
 
     forbidden_approve_prefixes = CharField(
         required=False,
-        label='Non approval commit message prefixes',
+        label='Non approvable commit message prefixes',
         help_text='A prefix per line separated optionally '
                   'by a | for a comment. '
                   'Example: WIP|work in progress',
+        widget=Textarea(attrs={'cols': '80', 'rows': '10'}))
+
+    forbidden_approve_suffixes = CharField(
+        required=False,
+        label='Non approvable commit message suffixes',
+        help_text='A suffix per line separated optionally '
+                  'by a | for a comment. '
+                  'Example: (Topic)|Topics cannot be published',
         widget=Textarea(attrs={'cols': '80', 'rows': '10'}))
