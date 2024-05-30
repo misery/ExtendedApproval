@@ -31,6 +31,8 @@ CONFIG_ENABLE_TARGET_SHIPITS = 'enable_target_shipits'
 CONFIG_ENABLE_LEGACY_BUTTONS = 'enable_legacy_buttons'
 CONFIG_ENABLE_WAIT_IT_BUTTON = 'enable_wait_it_button'
 CONFIG_FORBIDDEN_USER_SHIPITS = 'forbidden_user_shipits'
+CONFIG_FORBIDDEN_APPROVE_PREFIXES = 'forbidden_approve_prefixes'
+CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT = 'forbidden_approve_prefixes_dict'
 
 
 class ReqReviews(object):
@@ -161,11 +163,13 @@ class ApprovalColumn(Column):
             ))
 
     def render_data(self, state, review_request):
-        if review_request.summary.startswith('WIP'):
-            return self._render([{
-                      'icon_name': 'issue-dropped',
-                      'title': _('WIP'),
-               }])
+        prefixes = self.settings[CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT]
+        for key, value in prefixes.items():
+            if review_request.summary.startswith(key):
+                return self._render([{
+                        'icon_name': 'issue-dropped',
+                        'title': _(value),
+                }])
 
         r = ReqReviews(review_request)
         if len(r.getTotal()) > 0 or len(r.getRevoked()) > 0:
@@ -216,8 +220,10 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
            review_request.issue_verifying_count > 0):
             return False, 'The review request has open issues'
 
-        if review_request.summary.startswith('WIP'):
-            return False, 'The review request is marked as "work in progress"'
+        prefixes = self.settings[CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT]
+        for key, value in prefixes.items():
+            if review_request.summary.startswith(key):
+                return False, 'The review request is marked as "%s"' % value
 
         if not prev_approved:
             return False, prev_failure
@@ -381,6 +387,8 @@ class ExtendedApproval(Extension):
         CONFIG_ENABLE_LEGACY_BUTTONS: False,
         CONFIG_ENABLE_WAIT_IT_BUTTON: False,
         CONFIG_FORBIDDEN_USER_SHIPITS: '',
+        CONFIG_FORBIDDEN_APPROVE_PREFIXES: '',
+        CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT: None,
     }
 
     def initialize(self):
@@ -400,6 +408,15 @@ class ExtendedApproval(Extension):
             AdvancedLegacyShipItAction(self.settings),
             AdvancedLegacyWaitItAction(self.settings),
         ])
+
+        prefixDict = {}
+        prefixSettings = self.settings.get(CONFIG_FORBIDDEN_APPROVE_PREFIXES)
+        for entry in prefixSettings.splitlines():
+            lineSplit = entry.split('|', 1)
+            prefixDict[lineSplit[0]] = (lineSplit[1]
+                                        if len(lineSplit) > 1
+                                        else lineSplit[0])
+        self.settings[CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT] = prefixDict
 
     def shutdown(self):
         super(ExtendedApproval, self).shutdown()

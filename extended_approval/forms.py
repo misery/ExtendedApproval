@@ -1,4 +1,4 @@
-from django.forms import CharField, BooleanField, IntegerField
+from django.forms import CharField, BooleanField, IntegerField, Textarea
 from djblets.extensions.forms import SettingsForm
 
 
@@ -36,3 +36,11 @@ class ExtendedApprovalSettingsForm(SettingsForm):
         required=False,
         label='User who can never ShipIt',
         help_text='Comma separated list of usernames.')
+
+    forbidden_approve_prefixes = CharField(
+        required=False,
+        label='Non approval commit message prefixes',
+        help_text='A prefix per line separated optionally '
+                  'by a | for a comment. '
+                  'Example: WIP|work in progress',
+        widget=Textarea(attrs={'cols': '80', 'rows': '10'}))
