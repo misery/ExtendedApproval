@@ -872,6 +872,17 @@ class MercurialReviewRequest(BaseReviewRequest):
 
         return json.dumps(hashes)
 
+    def _check_and_set_fake_diff(self, diff_info, changesets):
+        if diff_info.getDiff() is None:
+            content = []
+            for changeset in changesets:
+                for data in changeset.raw_data():
+                    content.append(b'+%s' % data)
+
+            fake_diff = FAKE_DIFF_TEMPL % (len(content) + 5,
+                                           b'\n'.join(content))
+            diff_info.setDiff(fake_diff)
+
     def _generate_diff_info(self):
         """Generate the diff if it has been changed.
 
@@ -884,16 +895,7 @@ class MercurialReviewRequest(BaseReviewRequest):
                                            self._changesets[-1].node(False),
                                            self.base,
                                            self.request.id)
-
-        if self.diff_info.getDiff() is None:
-            content = []
-            for changeset in self._changesets:
-                for data in changeset.raw_data():
-                    content.append(b'+%s' % data)
-
-            fake_diff = FAKE_DIFF_TEMPL % (len(content) + 5,
-                                           b'\n'.join(content))
-            self.diff_info.setDiff(fake_diff)
+        self._check_and_set_fake_diff(self.diff_info, self._changesets)
 
         self.diff_info_commits = {}
         if self.request.created_with_history:
@@ -906,6 +908,7 @@ class MercurialReviewRequest(BaseReviewRequest):
                                              changeset.node(False),
                                              None,
                                              self.request.id)
+                    self._check_and_set_fake_diff(info, [changeset])
                     self.diff_info_commits[changeset.node(False)] = info
 
 
