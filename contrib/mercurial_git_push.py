@@ -709,6 +709,9 @@ class BaseReviewRequest(object):
         """Filter changeset information and check if the
            description got changed.
         """
+        if self.request.created_with_history:
+            return False
+
         regex = (r'\([0-9]{4}-[0-9]{2}-[0-9]{2} '
                  r'[0-9]{2}:[0-9]{2}:[0-9]{2}'
                  r'[\s]{0,1}[+-][0-9]{2}[:]{0,1}[0-9]{2}\) '
