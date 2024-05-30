@@ -556,6 +556,9 @@ class BaseReviewRequest(object):
         if len(self._changesets) == 1:
             return
 
+        if self._topic is None:
+            raise HookError('Topic is required for multiple commits')
+
         branch = None
         for changeset in self._changesets:
             if changeset.isMerge():
