@@ -37,9 +37,9 @@ CONFIG_ENABLE_LEGACY_BUTTONS = 'enable_legacy_buttons'
 CONFIG_ENABLE_WAIT_IT_BUTTON = 'enable_wait_it_button'
 CONFIG_FORBIDDEN_USER_SHIPITS = 'forbidden_user_shipits'
 CONFIG_FORBIDDEN_APPROVE_PREFIXES = 'forbidden_approve_prefixes'
-CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT = 'forbidden_approve_prefixes_dict'
 CONFIG_FORBIDDEN_APPROVE_SUFFIXES = 'forbidden_approve_suffixes'
-CONFIG_FORBIDDEN_APPROVE_SUFFIXES_DICT = 'forbidden_approve_suffixes_dict'
+
+FORBIDDEN_APPROVE = {}
 
 
 class ReqReviews(object):
@@ -169,7 +169,7 @@ class ApprovalColumn(Column):
             ))
 
     def render_data(self, state, review_request):
-        prefixes = self.settings[CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT]
+        prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
         for key, value in prefixes.items():
             if review_request.summary.startswith(key):
                 return self._render([{
@@ -177,7 +177,7 @@ class ApprovalColumn(Column):
                         'title': _(value),
                 }])
 
-        suffixes = self.settings[CONFIG_FORBIDDEN_APPROVE_SUFFIXES_DICT]
+        suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
         for key, value in suffixes.items():
             if review_request.summary.endswith(key):
                 return self._render([{
@@ -234,12 +234,12 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
            review_request.issue_verifying_count > 0):
             return False, 'The review request has open issues'
 
-        prefixes = self.settings[CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT]
+        prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
         for key, value in prefixes.items():
             if review_request.summary.startswith(key):
                 return False, 'The review request is marked as "%s"' % value
 
-        suffixes = self.settings[CONFIG_FORBIDDEN_APPROVE_SUFFIXES_DICT]
+        suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
         for key, value in suffixes.items():
             if review_request.summary.endswith(key):
                 return False, 'The review request is marked as "%s"' % value
@@ -407,9 +407,7 @@ class ExtendedApproval(Extension):
         # CONFIG_ENABLE_WAIT_IT_BUTTON: False,
         CONFIG_FORBIDDEN_USER_SHIPITS: '',
         CONFIG_FORBIDDEN_APPROVE_PREFIXES: 'WIP|work in progress',
-        CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT: None,
         CONFIG_FORBIDDEN_APPROVE_SUFFIXES: '',
-        CONFIG_FORBIDDEN_APPROVE_SUFFIXES_DICT: None,
     }
 
     def initialize(self):
@@ -430,20 +428,18 @@ class ExtendedApproval(Extension):
             # AdvancedLegacyWaitItAction(self.settings),
         ])
 
-        self._init_dict(CONFIG_FORBIDDEN_APPROVE_PREFIXES,
-                        CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT)
+        self._init_dict(CONFIG_FORBIDDEN_APPROVE_PREFIXES)
+        self._init_dict(CONFIG_FORBIDDEN_APPROVE_SUFFIXES)
 
-        self._init_dict(CONFIG_FORBIDDEN_APPROVE_SUFFIXES,
-                        CONFIG_FORBIDDEN_APPROVE_SUFFIXES_DICT)
-
-    def _init_dict(self, configName, configNameDict):
+    def _init_dict(self, configName):
         entries = {}
         for entry in self.settings.get(configName).splitlines():
             lineSplit = entry.split('|', 1)
             entries[lineSplit[0]] = (lineSplit[1]
                                      if len(lineSplit) > 1
                                      else lineSplit[0])
-        self.settings[configNameDict] = entries
+        global FORBIDDEN_APPROVE
+        FORBIDDEN_APPROVE[configName] = entries
 
     def shutdown(self):
         super(ExtendedApproval, self).shutdown()
