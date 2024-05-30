@@ -569,13 +569,13 @@ class BaseReviewRequest(object):
                                 '%s / %s' % (branch, changeset.branch()))
 
     def _get_hash(self, diffset_id):
-        if len(self.diff_info_commits) < 2:
-            return self.diff_info.getHash(diffset_id)
+        if self.request.created_with_history:
+            hasher = hashlib.sha256()
+            for info in six.itervalues(self.diff_info_commits):
+                hasher.update(info.getHash(diffset_id).encode('utf-8'))
+            return hasher.hexdigest()
 
-        hasher = hashlib.sha256()
-        for info in six.itervalues(self.diff_info_commits):
-            hasher.update(info.getHash(diffset_id).encode('utf-8'))
-        return hasher.hexdigest()
+        return self.diff_info.getHash(diffset_id)
 
     def _diff_up_to_date(self):
         """Return modified state of diff.
