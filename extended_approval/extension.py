@@ -385,7 +385,7 @@ class ExtendedApproval(Extension):
         CONFIG_ENABLE_REVOKE_SHIPITS: False,
         CONFIG_ENABLE_TARGET_SHIPITS: False,
         CONFIG_ENABLE_LEGACY_BUTTONS: False,
-        CONFIG_ENABLE_WAIT_IT_BUTTON: False,
+        # CONFIG_ENABLE_WAIT_IT_BUTTON: False,
         CONFIG_FORBIDDEN_USER_SHIPITS: '',
         CONFIG_FORBIDDEN_APPROVE_PREFIXES: '',
         CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT: None,
@@ -406,7 +406,7 @@ class ExtendedApproval(Extension):
             AdvancedLegacyEditReviewAction(self.settings),
             AdvancedLegacyAddGeneralCommentAction(self.settings),
             AdvancedLegacyShipItAction(self.settings),
-            AdvancedLegacyWaitItAction(self.settings),
+            # AdvancedLegacyWaitItAction(self.settings),
         ])
 
         prefixDict = {}

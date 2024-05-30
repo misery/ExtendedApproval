@@ -27,10 +27,10 @@ class ExtendedApprovalSettingsForm(SettingsForm):
         label='Show legacy buttons on review request',
         help_text=('Shows old "Review", "General Comment" and "ShipIt".'))
 
-    enable_wait_it_button = BooleanField(
-        required=False,
-        label='Show "Wait It" button on review request',
-        help_text=('Shows custom "ShipIt" button with added issue.'))
+#    enable_wait_it_button = BooleanField(
+#        required=False,
+#        label='Show "Wait It" button on review request',
+#        help_text=('Shows custom "ShipIt" button with added issue.'))
 
     forbidden_user_shipits = CharField(
         required=False,
