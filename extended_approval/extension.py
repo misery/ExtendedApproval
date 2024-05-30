@@ -46,6 +46,7 @@ class ReqReviews(object):
     def __init__(self, r):
         self.request = r
         self.diffset = r.get_latest_diffset()
+        self.commits = self.diffset.commits.all()
         self.total = []
         self.latest = []
         self.self = []
@@ -64,6 +65,22 @@ class ReqReviews(object):
 
     def getDiffset(self):
         return self.diffset
+
+    def checkForbiddenPrefix(self):
+        prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
+        for key, value in prefixes.items():
+            for commit in self.commits:
+                if commit.commit_message.startswith(key):
+                    return (value, commit)
+        return (None, None)
+
+    def checkForbiddenSuffix(self):
+        suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
+        for key, value in suffixes.items():
+            for commit in self.commits:
+                if commit.commit_message.endswith(key):
+                    return (value, commit)
+        return (None, None)
 
     def getSelf(self):
         return self.self
@@ -186,6 +203,16 @@ class ApprovalColumn(Column):
                 }])
 
         r = ReqReviews(review_request)
+
+        info, commit = r.checkForbiddenPrefix()
+        if info is None:
+            info, commit = r.checkForbiddenSuffix()
+        if info is not None:
+            return self._render([{
+                    'icon_name': 'issue-dropped',
+                    'title': _(info),
+            }])
+
         if len(r.getTotal()) > 0 or len(r.getRevoked()) > 0:
             if len(r.getLatest()) > 0:
                 period = check_grace_period(self.settings, r.getDiffset(),
@@ -234,20 +261,29 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
            review_request.issue_verifying_count > 0):
             return False, 'The review request has open issues'
 
+        markedTempl = 'The review request is marked as "%s"'
         prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
         for key, value in prefixes.items():
             if review_request.summary.startswith(key):
-                return False, 'The review request is marked as "%s"' % value
+                return False, markedTempl % value
 
         suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
         for key, value in suffixes.items():
             if review_request.summary.endswith(key):
-                return False, 'The review request is marked as "%s"' % value
+                return False, markedTempl % value
 
         if not prev_approved:
             return False, prev_failure
 
         r = ReqReviews(review_request)
+
+        info, commit = r.checkForbiddenPrefix()
+        if info is None:
+            info, commit = r.checkForbiddenSuffix()
+        if info is not None:
+            markedTempl = 'The commit is marked as "%s": %s'
+            return False, markedTempl % (value, commit.commit_id)
+
         if len(r.getLatest()) == 0:
             return False, 'The latest diff has not been marked' \
                           ' "Ship It!" by someone else'
