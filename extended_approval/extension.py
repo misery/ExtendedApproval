@@ -46,7 +46,7 @@ class ReqReviews(object):
     def __init__(self, r):
         self.request = r
         self.diffset = r.get_latest_diffset()
-        self.commits = self.diffset.commits.all()
+        self.commits = None
         self.total = None
         self.latest = None
         self.self = None
@@ -68,10 +68,16 @@ class ReqReviews(object):
                     if shipit.timestamp > self.diffset.timestamp:
                         self.latest.append(shipit)
 
+    def _fetch_commits(self):
+        self.commits = self.diffset.commits.all()
+
     def getDiffset(self):
         return self.diffset
 
     def checkForbiddenPrefix(self):
+        if self.commits is None:
+            self._fetch_commits()
+
         prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
         for key, value in prefixes.items():
             for commit in self.commits:
@@ -80,6 +86,9 @@ class ReqReviews(object):
         return (None, None)
 
     def checkForbiddenSuffix(self):
+        if self.commits is None:
+            self._fetch_commits()
+
         suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
         for key, value in suffixes.items():
             for commit in self.commits:
