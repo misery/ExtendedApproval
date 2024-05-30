@@ -47,15 +47,20 @@ class ReqReviews(object):
         self.request = r
         self.diffset = r.get_latest_diffset()
         self.commits = self.diffset.commits.all()
+        self.total = None
+        self.latest = None
+        self.self = None
+        self.revoked = None
+
+    def _calc_diffsets(self):
         self.total = []
         self.latest = []
         self.self = []
-        self.revoked = None
-
         if self.diffset:
-            shipit_reviews = r.reviews.filter(public=True, ship_it=True)
+            shipit_reviews = self.request.reviews.filter(public=True,
+                                                         ship_it=True)
             for shipit in shipit_reviews:
-                if r.submitter == shipit.user:
+                if self.request.submitter == shipit.user:
                     self.self.append(shipit)
                 else:
                     self.total.append(shipit)
@@ -82,9 +87,6 @@ class ReqReviews(object):
                     return (value, commit)
         return (None, None)
 
-    def getSelf(self):
-        return self.self
-
     def getRevoked(self):
         if self.revoked is None:
             self.revoked = []
@@ -99,16 +101,25 @@ class ReqReviews(object):
         return self.revoked
 
     def getTotal(self):
+        if self.total is None:
+            self._calc_diffsets()
         return self.total
 
     def getTotalUser(self):
-        return self._distinct_user(self.total)
+        return self._distinct_user(self.getTotal())
 
     def getLatest(self):
+        if self.latest is None:
+            self._calc_diffsets()
         return self.latest
 
     def getLatestUser(self):
-        return self._distinct_user(self.latest)
+        return self._distinct_user(self.getLatest())
+
+    def getSelf(self):
+        if self.self is None:
+            self._calc_diffsets()
+        return self.self
 
     def _distinct_user(self, sourceList):
         distinct = []
