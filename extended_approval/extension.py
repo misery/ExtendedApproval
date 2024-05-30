@@ -387,7 +387,7 @@ class ExtendedApproval(Extension):
         CONFIG_ENABLE_LEGACY_BUTTONS: False,
         # CONFIG_ENABLE_WAIT_IT_BUTTON: False,
         CONFIG_FORBIDDEN_USER_SHIPITS: '',
-        CONFIG_FORBIDDEN_APPROVE_PREFIXES: '',
+        CONFIG_FORBIDDEN_APPROVE_PREFIXES: 'WIP|work in progress',
         CONFIG_FORBIDDEN_APPROVE_PREFIXES_DICT: None,
     }
 
