@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta, UTC
+import pytz
+from datetime import datetime, timedelta
 
 from djblets.datagrid.grids import Column
 
@@ -103,7 +104,7 @@ def calc_epoch(settings, config, obj):
 
 
 def check_grace_period(settings, diffset, shipit):
-    now = datetime.now(UTC)
+    now = datetime.utcnow().replace(tzinfo=pytz.utc)
 
     epoch = calc_epoch(settings, CONFIG_GRACE_PERIOD_DIFFSET, diffset)
     if epoch > now:
