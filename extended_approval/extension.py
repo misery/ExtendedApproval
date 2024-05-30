@@ -302,7 +302,7 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
             info, commit = r.checkForbiddenSuffix()
         if info is not None:
             markedTempl = 'The commit is marked as "%s": %s'
-            return False, markedTempl % (value, commit.commit_id)
+            return False, markedTempl % (info, commit.commit_id)
 
         if len(r.getLatest()) == 0:
             return False, 'The latest diff has not been marked' \
