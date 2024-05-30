@@ -573,6 +573,8 @@ class BaseReviewRequest(object):
             hasher = hashlib.sha256()
             for info in six.itervalues(self.diff_info_commits):
                 hasher.update(info.getHash(diffset_id).encode('utf-8'))
+            for changeset in self._changesets:
+                hasher.update(changeset.desc().encode('utf-8'))
             return hasher.hexdigest()
 
         return self.diff_info.getHash(diffset_id)
