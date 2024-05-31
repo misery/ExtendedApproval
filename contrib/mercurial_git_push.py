@@ -1474,14 +1474,34 @@ class BaseHook(object):
                 break
 
         if idx is None:
-            for r in revreqs:
-                self.log('Closing review request: %s', r.id())
-                r.close()
-            return 0
+            if self._is_multi_head() and self._is_multi_head_forbidden():
+                self.log('Multiple heads per branch are forbidden!')
+            else:
+                for r in revreqs:
+                    self.log('Closing review request: %s', r.id())
+                    r.close()
+                return 0
         elif idx > 0:
             self._log_push_info(revreqs[idx - 1].node())
 
         return 1
+
+    def _is_multi_head(self):
+        heads = MercurialRevision.fetch('head() and not closed()')
+        if heads is None:
+            raise HookError('Cannot fetch branch heads')
+
+        branches = []
+        for head in heads:
+            if head.branch() in branches:
+                return True
+            branches.append(head.branch())
+
+        return False
+
+    def _is_multi_head_forbidden(self):
+        headAllowed = os.environ.get('HOOK_MULTI_HEAD_ALLOWED')
+        return headAllowed is None or headAllowed.lower() != "on"
 
     def _log_push_info(self, node=None):
         self.log('If you want to push the already approved ')
