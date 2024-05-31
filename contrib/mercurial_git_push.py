@@ -464,52 +464,58 @@ class BaseReviewRequest(object):
         return (rev, text_type)
 
     def info(self):
-        if self.request.created_with_history:
-            return self.summary()
-
         if self._info is None:
-            template = ('```{author} ({date}) [{node}] '
-                        '[{branch}] [graft: {graft}] '
-                        '[topic: {topic}]'
-                        '```\n\n{desc}')
+            if self.request.created_with_history:
+                template = ('```{author} '
+                            '[{branch}] [graft: {graft}] '
+                            '```\n\n{desc}')
+            else:
+                template = ('```{author} ({date}) [{node}] '
+                            '[{branch}] [graft: {graft}] '
+                            '[topic: {topic}]'
+                            '```\n\n{desc}')
 
-            changeset = self._changesets[0]
-            desc = self._replace_hashes(changeset.desc())
-            self._info = template.format(author=changeset.author(),
-                                         date=changeset.date(),
-                                         node=self.nodes(),
-                                         branch=self.branch(),
-                                         graft=changeset.graft(),
-                                         topic=changeset.topic(),
-                                         desc=desc)
-            merges = changeset.merges()
-            if merges:
-                self._info += '\n\n\n'
+            self._info = []
+            for changeset in self._changesets:
+                desc = self._replace_hashes(changeset.desc())
+                info = template.format(author=changeset.author(),
+                                       date=changeset.date(),
+                                       node=changeset.node(),
+                                       branch=changeset.branch(),
+                                       graft=changeset.graft(),
+                                       topic=changeset.topic(),
+                                       desc=desc)
 
-                files = changeset.files()
-                self._info += '# Touched %d file(s) by this merge ' \
-                              'changeset\n' % len(files)
-                for entry in files:
-                    self._info += '+ ' + entry + '\n'
+                merges = changeset.merges()
+                if merges:
+                    info += '\n\n\n'
 
-                self._info += '# Merges %d changeset(s)\n' % len(merges)
+                    files = changeset.files()
+                    info += '# Touched %d file(s) by this merge ' \
+                            'changeset\n' % len(files)
+                    for entry in files:
+                        info += '+ ' + entry + '\n'
 
-                def add(changes):
-                    t = '+ [{node}] {summary}\n'
-                    for rev in changes:
-                        node, _ = self._markdown_rev(rev.node())
-                        summary = self._replace_hashes(rev.summary())
-                        self._info += t.format(node=node,
-                                               summary=summary)
+                    info += '# Merges %d changeset(s)\n' % len(merges)
 
-                if len(merges) > MAX_MERGE_ENTRIES + 1:
-                    add(merges[0:MAX_MERGE_ENTRIES])
-                    self._info += '+ ...\n'
-                    add([merges[-1]])
-                else:
-                    add(merges)
+                    def add(changes):
+                        t = '+ [{node}] {summary}\n'
+                        for rev in changes:
+                            node, _ = self._markdown_rev(rev.node())
+                            summary = self._replace_hashes(rev.summary())
+                            info += t.format(node=node,
+                                             summary=summary)
 
-            self._info = self._info.strip()
+                    if len(merges) > MAX_MERGE_ENTRIES + 1:
+                        add(merges[0:MAX_MERGE_ENTRIES])
+                        info += '+ ...\n'
+                        add([merges[-1]])
+                    else:
+                        add(merges)
+
+                self._info.append(info.strip())
+
+            self._info = '\n\n---\n'.join(self._info)
 
         return self._info
 
@@ -576,8 +582,7 @@ class BaseReviewRequest(object):
             hasher = hashlib.sha256()
             for info in six.itervalues(self.diff_info_commits):
                 hasher.update(info.getHash(diffset_id).encode('utf-8'))
-            for changeset in self._changesets:
-                hasher.update(changeset.desc().encode('utf-8'))
+            hasher.update(self.info().encode('utf-8'))
             return hasher.hexdigest()
 
         return self.diff_info.getHash(diffset_id)
