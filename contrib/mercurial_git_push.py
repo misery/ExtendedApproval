@@ -1471,7 +1471,7 @@ class BaseHook(object):
                 break
 
         if idx is None:
-            if self._is_multi_head() and self._is_multi_head_forbidden():
+            if self._is_multi_head_forbidden() and self._is_multi_head():
                 self.log('Multiple heads per branch are forbidden!')
             else:
                 for r in revreqs:
