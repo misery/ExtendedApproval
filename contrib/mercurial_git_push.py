@@ -967,6 +967,7 @@ class MercurialGitHookCmd(BaseCommand):
     needs_api = True
     option_list = [
         BaseCommand.server_options,
+        BaseCommand.repository_options,
     ]
 
     def __init__(self):
@@ -1304,14 +1305,7 @@ class BaseHook(object):
 
     def _init_rbtools(self, cmd):
         """Initialize internal rbtools stuff"""
-        try:
-            server_url = cmd.get_server_url(None, None)
-        except Exception:
-            self.log('Trying .reviewboardrc (RBTOOLS_CONFIG_PATH) file "'
-                     'in "%s" and "%s"',
-                     os.environ.get('HOME'),
-                     os.environ.get('RBTOOLS_CONFIG_PATH'))
-            raise
+        server_url = cmd.get_server_url(None, None)
 
         try:
             api_client, root = cmd.get_api(server_url)
@@ -1340,6 +1334,10 @@ class BaseHook(object):
                 self.root = self._init_rbtools(cmd)
         except Exception:
             self.log('Cannot init rbtools...')
+            self.log('Trying .reviewboardrc (RBTOOLS_CONFIG_PATH) file "'
+                     'in "%s" and "%s"',
+                     os.environ.get('HOME'),
+                     os.environ.get('RBTOOLS_CONFIG_PATH'))
             raise
 
         self._differ = self.review_differ_class(self.root, cmd)
