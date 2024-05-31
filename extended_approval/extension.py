@@ -92,7 +92,7 @@ class ReqReviews(object):
         suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
         for key, value in suffixes.items():
             for commit in self.commits:
-                if commit.commit_message.endswith(key):
+                if commit.commit_message.splitlines()[0].endswith(key):
                     return (value, commit)
         return (None, None)
 
