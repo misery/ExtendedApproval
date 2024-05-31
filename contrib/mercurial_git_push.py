@@ -499,19 +499,20 @@ class BaseReviewRequest(object):
                     info += '# Merges %d changeset(s)\n' % len(merges)
 
                     def add(changes):
+                        i = ''
                         t = '+ [{node}] {summary}\n'
                         for rev in changes:
                             node, _ = self._markdown_rev(rev.node())
                             summary = self._replace_hashes(rev.summary())
-                            info += t.format(node=node,
-                                             summary=summary)
+                            i += t.format(node=node, summary=summary)
+                        return i
 
                     if len(merges) > MAX_MERGE_ENTRIES + 1:
-                        add(merges[0:MAX_MERGE_ENTRIES])
+                        info += add(merges[0:MAX_MERGE_ENTRIES])
                         info += '+ ...\n'
-                        add([merges[-1]])
+                        info += add([merges[-1]])
                     else:
-                        add(merges)
+                        info += add(merges)
 
                 self._info.append(info.strip())
 
