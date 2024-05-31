@@ -786,21 +786,17 @@ class BaseReviewRequest(object):
 
         count = len(reqs)
         if count == 0:
-            reqs = self.root.get_review_requests(repository=self.repo,
-                                                 status='pending',
-                                                 show_all_unpublished=True,
-                                                 only_fields=fields,
-                                                 only_links=links,
-                                                 from_user=self.submitter)
-            found = None
-            for r in reqs.all_items:
-                if r.summary == self.summary():
-                    if found is not None:
-                        raise HookError('Multiple review requests: %s'
-                                        % self.summary())
-                    found = r
-
-            return found
+            reqs = self._get_requests_from_summary(fields,
+                                                   links,
+                                                   self.summary())
+            if len(reqs) == 1:
+                return reqs[0]
+            elif len(reqs) > 1:
+                IDs = []
+                [IDs.append(str(r.id)) for r in reqs]
+                raise HookError('Found multiple review requests for summary '
+                                '"%s": %s'
+                                % (self.summary(), ','.join(IDs)))
 
         elif count == 1:
             r = reqs[0]
@@ -810,6 +806,20 @@ class BaseReviewRequest(object):
             return r
 
         return None
+
+    def _get_requests_from_summary(self, fields, links, summary):
+        reqs = self.root.get_review_requests(repository=self.repo,
+                                             status='pending',
+                                             show_all_unpublished=True,
+                                             only_fields=fields,
+                                             only_links=links,
+                                             from_user=self.submitter)
+        found = []
+        for r in reqs.all_items:
+            if r.summary == summary:
+                found.append(r)
+
+        return found
 
 
 class MercurialReviewRequest(BaseReviewRequest):
