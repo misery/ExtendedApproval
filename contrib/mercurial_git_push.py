@@ -736,13 +736,12 @@ class BaseReviewRequest(object):
 
         if self._topic:
             content.append(self._topic.encode('utf-8'))
-            content.append(self.submitter.encode('utf-8'))
-            content.append(six.text_type(self.repo).encode('utf-8'))
-        else:
-            content.append(self._changesets[0].author().encode('utf-8'))
-            content.append(self._changesets[0].date().encode('utf-8'))
-            content.append(six.text_type(self.repo).encode('utf-8'))
 
+        content.append(self._changesets[0].author().encode('utf-8'))
+        content.append(self._changesets[0].date().encode('utf-8'))
+        content.append(six.text_type(self.repo).encode('utf-8'))
+
+        if self._topic is None:
             s = self.summary()
             if (s.startswith('[maven-release-plugin]') or
                     s.startswith('Added tag ') or
