@@ -424,7 +424,7 @@ class BaseReviewRequest(object):
 
     def summary(self):
         if self._topic:
-            return "Topic: " + self._topic
+            return 'Topic: ' + self._topic
         else:
             return self._changesets[0].summary()
 
