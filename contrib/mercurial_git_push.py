@@ -758,7 +758,7 @@ class BaseReviewRequest(object):
                     if ctx.commits is None:
                         continue
                     for commit in ctx.commits:
-                        if commit.commit_message == summary:
+                        if commit.commit_message.splitlines()[0] == summary:
                             ID = str(r.id)
                             if ID not in self._depends_on_updated:
                                 self._depends_on_updated.append(ID)
