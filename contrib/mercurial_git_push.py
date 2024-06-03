@@ -168,7 +168,7 @@ def getHMac():
                 raise HookError('You need to define %s' % envKey)
 
         if not six.PY2:
-            KEY = bytes(KEY, 'ascii')
+            KEY = bytes(KEY, 'utf-8')
 
     return hmac.new(KEY, digestmod=hashlib.sha256)
 
