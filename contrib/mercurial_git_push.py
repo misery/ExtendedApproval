@@ -623,15 +623,11 @@ class BaseReviewRequest(object):
 
     def _update_with_history(self, diffs):
         d = self.diff_info
-        diff = diffs.create_empty(base_commit_id=d.getBaseCommitId(),
-                                  only_fields='',
-                                  only_links='self,draft_commits')
         v = None
-        commits = diff.get_draft_commits()
         validator = self.root.get_commit_validation()
+
         for changeset in self._changesets:
             change_d = self.diff_info_commits[changeset.node()]
-
             v = validator.validate_commit(repository=self.repo,
                                           diff=change_d.getDiff(),
                                           commit_id=changeset.node(),
@@ -641,6 +637,12 @@ class BaseReviewRequest(object):
                                           validation_info=v
                                           ).validation_info
 
+        diff = diffs.create_empty(base_commit_id=d.getBaseCommitId(),
+                                  only_fields='',
+                                  only_links='self,draft_commits')
+        commits = diff.get_draft_commits()
+        for changeset in self._changesets:
+            change_d = self.diff_info_commits[changeset.node()]
             commits.upload_commit(validation_info=v,
                                   commit_id=changeset.node(),
                                   commit_message=changeset.desc(),
