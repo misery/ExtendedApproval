@@ -376,6 +376,8 @@ class BaseReviewRequest(object):
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
         self.diff_info_commits = None
+        self._depends_on = None
+        self._depends_on_updated = None
         self._skippable = None
         self._differ = differ
         self._web = web
@@ -538,6 +540,7 @@ class BaseReviewRequest(object):
         """
         return (self.request.branch != self.branch() or
                 self.request.summary != self.summary() or
+                self._get_depends_on() != self._get_depends_on_updated() or
                 self._modified_description() or not
                 self._diff_up_to_date())
 
@@ -688,8 +691,10 @@ class BaseReviewRequest(object):
         refs = list(set(refs))
         refs.sort()
         bugs = ','.join(refs)
+        depends_on = self._get_depends_on_updated()
 
         draft.update(summary=self.summary(),
+                     depends_on=','.join(depends_on),
                      bugs_closed=bugs,
                      description=self.info(),
                      description_text_type='markdown',
@@ -715,6 +720,39 @@ class BaseReviewRequest(object):
                         repository=self.repo,
                         create_with_history=self._topic is not None,
                         submit_as=self.submitter)
+
+    def _get_depends_on(self):
+        if self._depends_on is None:
+            self._depends_on = []
+            for request in self.request.depends_on:
+                self._depends_on.append(str(request.get().id))
+
+        return self._depends_on
+
+    def _get_depends_on_updated(self):
+        if self._depends_on_updated is None:
+            self._depends_on_updated = self._get_depends_on().copy()
+
+            changesetTopic = self._changesets[0].topic()
+            if self._topic is None and changesetTopic is not None:
+                fields = ('summary,id')
+                links = ('diff_context')
+                summary = 'Topic: ' + changesetTopic
+                requests = self._get_requests_from_summary(fields,
+                                                           links,
+                                                           summary)
+                summary = self._changesets[0].summary()
+                for r in requests:
+                    ctx = r.get_diff_context()
+                    if ctx.commits is None:
+                        continue
+                    for commit in ctx.commits:
+                        if commit.commit_message == summary:
+                            ID = str(r.id)
+                            if ID not in self._depends_on_updated:
+                                self._depends_on_updated.append(ID)
+
+        return self._depends_on_updated
 
     def _modified_description(self):
         """Filter changeset information and check if the
@@ -775,7 +813,7 @@ class BaseReviewRequest(object):
             The corresponding review request on review board if exist,
             otherwise None.
         """
-        fields = ('summary,approved,approval_failure,id,commit_id,'
+        fields = ('summary,approved,approval_failure,id,commit_id,depends_on,'
                   'branch,description,extra_data,created_with_history')
         links = 'submitter,update,latest_diff,draft,file_attachments'
 
