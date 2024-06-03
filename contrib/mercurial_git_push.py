@@ -377,6 +377,7 @@ class BaseReviewRequest(object):
         self.root = root
         self.repo = repo
         self.submitter = submitter
+        self._topic_prefix = 'Topic: '
         self._topic = topic
         self._changesets = changesets
         self._check_changesets()
@@ -434,7 +435,7 @@ class BaseReviewRequest(object):
 
     def summary(self):
         if self._topic:
-            return 'Topic: ' + self._topic
+            return self._topic_prefix + self._topic
         else:
             return self._changesets[0].summary()
 
@@ -747,7 +748,7 @@ class BaseReviewRequest(object):
             if self._topic is None and changesetTopic is not None:
                 fields = ('summary,id')
                 links = ('diff_context')
-                summary = 'Topic: ' + changesetTopic
+                summary = self._topic_prefix + changesetTopic
                 requests = self._get_requests_from_summary(fields,
                                                            links,
                                                            summary)
