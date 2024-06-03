@@ -490,7 +490,7 @@ class BaseReviewRequest(object):
                 desc = self._replace_hashes(changeset.desc())
                 info = template.format(author=changeset.author(),
                                        date=changeset.date(),
-                                       node=changeset.node(),
+                                       node=changeset.node(True),
                                        branch=changeset.branch(),
                                        graft=changeset.graft(),
                                        topic=changeset.topic(),
@@ -512,7 +512,7 @@ class BaseReviewRequest(object):
                         i = ''
                         t = '+ [{node}] {summary}\n'
                         for rev in changes:
-                            node, _ = self._markdown_rev(rev.node())
+                            node, _ = self._markdown_rev(rev.node(True))
                             summary = self._replace_hashes(rev.summary())
                             i += t.format(node=node, summary=summary)
                         return i
@@ -630,11 +630,11 @@ class BaseReviewRequest(object):
         commits = diff.get_draft_commits()
         validator = self.root.get_commit_validation()
         for changeset in self._changesets:
-            change_d = self.diff_info_commits[changeset.node(False)]
+            change_d = self.diff_info_commits[changeset.node()]
 
             v = validator.validate_commit(repository=self.repo,
                                           diff=change_d.getDiff(),
-                                          commit_id=changeset.node(False),
+                                          commit_id=changeset.node(),
                                           parent_id=changeset.parent(),
                                           parent_diff=d.getParentDiff(),
                                           base_commit_id=d.getBaseCommitId(),
@@ -642,7 +642,7 @@ class BaseReviewRequest(object):
                                           ).validation_info
 
             commits.upload_commit(validation_info=v,
-                                  commit_id=changeset.node(False),
+                                  commit_id=changeset.node(),
                                   commit_message=changeset.desc(),
                                   parent_id=changeset.parent(),
                                   parent_diff=d.getParentDiff(),
@@ -963,7 +963,7 @@ class MercurialReviewRequest(BaseReviewRequest):
         - A commit to close a branch: "hg commit --close-branch"
         """
         self.diff_info = self._differ.diff(self._changesets[0].parent(),
-                                           self._changesets[-1].node(False),
+                                           self._changesets[-1].node(),
                                            self.base,
                                            self.request.id)
         self._check_and_set_fake_diff(self.diff_info, self._changesets)
@@ -971,16 +971,16 @@ class MercurialReviewRequest(BaseReviewRequest):
         self.diff_info_commits = {}
         if self.request.created_with_history:
             if len(self._changesets) == 1:
-                node = self._changesets[0].node(False)
+                node = self._changesets[0].node()
                 self.diff_info_commits[node] = self.diff_info
             else:
                 for changeset in self._changesets:
                     info = self._differ.diff(changeset.parent(),
-                                             changeset.node(False),
+                                             changeset.node(),
                                              None,
                                              self.request.id)
                     self._check_and_set_fake_diff(info, [changeset])
-                    self.diff_info_commits[changeset.node(False)] = info
+                    self.diff_info_commits[changeset.node()] = info
 
 
 class GitReviewRequest(BaseReviewRequest):
@@ -1007,12 +1007,12 @@ class GitReviewRequest(BaseReviewRequest):
             base = self.base
 
         if len(self._changesets[0].parent()) > 0:
-            parent = self._changesets[0].node(False) + '^1'
+            parent = self._changesets[0].node() + '^1'
         else:
             parent = initialCommit
 
         self.diff_info = self._differ.diff(parent,
-                                           self._changesets[0].node(False),
+                                           self._changesets[0].node(),
                                            base,
                                            self.request.id)
 
@@ -1099,7 +1099,7 @@ class MercurialRevision(BaseRevision):
         p = self.json['parents'][0]
         return p[:12] if short else p
 
-    def node(self, short=True):
+    def node(self, short=False):
         n = self.json['node']
         return n[:12] if short else n
 
@@ -1245,7 +1245,7 @@ class GitRevision(BaseRevision):
     def parent(self):
         return self._parent
 
-    def node(self, short=True):
+    def node(self, short=False):
         return self._hash[:12] if short else self._hash
 
     def branch(self):
@@ -1267,7 +1267,7 @@ class GitRevision(BaseRevision):
         return []
 
     def file(self, filename):
-        entry = '%s:%s' % (self.node(False), filename)
+        entry = '%s:%s' % (self.node(), filename)
         return execute(['git', 'show', entry])
 
     def isMerge(self):
@@ -1542,7 +1542,7 @@ class BaseHook(object):
                     r.close()
                 return 0
         elif idx > 0:
-            self._log_push_info(revreqs[idx - 1].node())
+            self._log_push_info(revreqs[idx - 1].node(True))
 
         return 1
 
