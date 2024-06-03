@@ -1272,9 +1272,11 @@ class BaseHook(object):
             self.repo_name = \
                 e['HEPTAPOD_PROJECT_NAMESPACE_FULL_PATH'] + '/' + \
                 e['HEPTAPOD_PROJECT_PATH']
-        elif 'GOGS_REPO_NAME' in e and 'GOGS_AUTH_USER_NAME' in e:
+        elif 'GOGS_REPO_NAME' in e and 'GOGS_AUTH_USER_NAME' in e and\
+             'GOGS_REPO_OWNER_NAME' in e:
             self.submitter = e['GOGS_AUTH_USER_NAME']
-            self.repo_name = e['GOGS_REPO_NAME']
+            self.repo_name = e['GOGS_REPO_OWNER_NAME'] + '/' + \
+                e['GOGS_REPO_NAME']
         elif 'GL_USERNAME' in e and 'GL_PROJECT_PATH' in e:
             self.submitter = e['GL_USERNAME']
             self.repo_name = e['GL_PROJECT_PATH']
