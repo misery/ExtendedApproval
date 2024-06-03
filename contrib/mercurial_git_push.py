@@ -736,7 +736,11 @@ class BaseReviewRequest(object):
         if self._depends_on is None:
             self._depends_on = []
             for request in self.request.depends_on:
-                self._depends_on.append(str(request.get().id))
+                ID = re.search(r'\/([0-9]+)\/*$', request['href'])
+                if ID and ID.group(1):
+                    self._depends_on.append(ID.group(1))
+                else:
+                    self._depends_on.append(str(request.get().id))
 
         return self._depends_on
 
