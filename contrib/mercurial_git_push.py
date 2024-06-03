@@ -584,6 +584,8 @@ class BaseReviewRequest(object):
             for info in six.itervalues(self.diff_info_commits):
                 hasher.update(info.getHash(diffset_id).encode('utf-8'))
             hasher.update(self.info().encode('utf-8'))
+            if self._topic:
+                hasher.update(self._topic.encode('utf-8'))
             return hasher.hexdigest()
 
         return self.diff_info.getHash(diffset_id)
