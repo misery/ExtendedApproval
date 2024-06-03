@@ -151,6 +151,26 @@ new file mode 100644
 HG = 'hg'
 USE_TOPICS = True
 TOPIC = None
+KEY = None
+
+
+def getHMac():
+    global KEY
+
+    if KEY is None:
+        envKey = 'HOOK_HMAC_KEY'
+        KEY = os.environ.get(envKey)
+        if KEY is None:
+            try:
+                with open('/etc/machine-id', 'r') as content_file:
+                    KEY = content_file.read().strip()
+            except Exception:
+                raise HookError('You need to define %s' % envKey)
+
+        if not six.PY2:
+            KEY = bytes(KEY, 'ascii')
+
+    return hmac.new(KEY, digestmod=hashlib.sha256)
 
 
 def get_ticket_refs(text, prefixes=None):
@@ -192,9 +212,8 @@ class BaseDiffer(object):
 
     class DiffContent(object):
         """A class to hold info about a diff and the diff itself."""
-        def __init__(self, key, request_id,
+        def __init__(self, request_id,
                      diff, base_commit_id, parent_diff=None):
-            self._key = key
             self._request_id = request_id
             self._base_commit_id = base_commit_id
             self.setDiff(diff)
@@ -228,7 +247,7 @@ class BaseDiffer(object):
             if self._request_id is None:
                 raise HookError('Cannot get hash without request id')
 
-            hasher = hmac.new(self._key, digestmod=hashlib.sha256)
+            hasher = getHMac()
             hasher.update(six.text_type(self._request_id).encode('utf-8'))
             return hasher
 
@@ -265,17 +284,6 @@ class BaseDiffer(object):
 
     def __init__(self, tool):
         self.tool = tool
-        envKey = 'HOOK_HMAC_KEY'
-        self._key = os.environ.get(envKey)
-        if self._key is None:
-            try:
-                with open('/etc/machine-id', 'r') as content_file:
-                    self._key = content_file.read().strip()
-            except Exception:
-                raise HookError('You need to define %s' % envKey)
-
-        if not six.PY2:
-            self._key = bytes(self._key, 'ascii')
 
     def diff(self, rev1, rev2, base, request_id):
         """Return a diff and parent diff of given changeset.
@@ -306,7 +314,7 @@ class BaseDiffer(object):
             revisions['parent_base'] = base
 
         info = self.tool.diff(revisions=revisions)
-        return BaseDiffer.DiffContent(self._key, request_id,
+        return BaseDiffer.DiffContent(request_id,
                                       info['diff'],
                                       info['base_commit_id'],
                                       info['parent_diff'])
