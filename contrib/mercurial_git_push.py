@@ -93,8 +93,8 @@ can use the provided reviewboard.sh as a wrapper to the hook.
 pretxnchangegroup.rb = /path/to/hook/mercurial_git_push.py
 #pretxnchangegroup.rb = /path/to/hook/reviewboard.sh
 
-This hook was tested with "hg serve", hgkeeper, Heptapod, Kallithea
-and SCM-Manager as a remote hosting platform and a local repository.
+This hook was tested with "hg serve", hgkeeper, Heptapod, Kallithea,
+SCM-Manager and Gogs as a remote hosting platform and a local repository.
 
 
 
@@ -1272,6 +1272,9 @@ class BaseHook(object):
             self.repo_name = \
                 e['HEPTAPOD_PROJECT_NAMESPACE_FULL_PATH'] + '/' + \
                 e['HEPTAPOD_PROJECT_PATH']
+        elif 'GOGS_REPO_NAME' in e and 'GOGS_AUTH_USER_NAME' in e:
+            self.submitter = e['GOGS_AUTH_USER_NAME']
+            self.repo_name = e['GOGS_REPO_NAME']
         elif 'GL_USERNAME' in e and 'GL_PROJECT_PATH' in e:
             self.submitter = e['GL_USERNAME']
             self.repo_name = e['GL_PROJECT_PATH']
