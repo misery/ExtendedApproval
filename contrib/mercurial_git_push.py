@@ -591,7 +591,7 @@ class BaseReviewRequest(object):
 
     def _get_hash(self, diffset_id):
         if self.request.created_with_history:
-            hasher = hashlib.sha256()
+            hasher = getHMac()
             for info in six.itervalues(self.diff_info_commits):
                 hasher.update(info.getHash(diffset_id).encode('utf-8'))
             hasher.update(self.info().encode('utf-8'))
