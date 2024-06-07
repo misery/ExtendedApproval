@@ -2,7 +2,7 @@ from reviewboard.extensions.packaging import setup
 
 
 PACKAGE = "rbExtendedApproval"
-VERSION = "1.2.4"
+VERSION = "1.2.5"
 
 setup(
     name=PACKAGE,
