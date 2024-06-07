@@ -10,7 +10,7 @@ from djblets.datagrid.grids import Column
 
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 from reviewboard.admin.read_only import is_site_read_only_for
 from reviewboard.extensions.base import Extension
