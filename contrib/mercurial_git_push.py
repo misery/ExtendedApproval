@@ -1341,6 +1341,9 @@ class BaseHook(object):
         elif 'REPO_NAME' in e and 'REMOTE_USER' in e:
             self.submitter = e['REMOTE_USER']
             self.repo_name = e['REPO_NAME']
+        elif 'GITHUB_REPO_NAME' in e and 'GITHUB_USER_LOGIN' in e:
+            self.submitter = e['GITHUB_USER_LOGIN']
+            self.repo_name = e['GITHUB_REPO_NAME']
         else:
             self.submitter = getpass.getuser()
 
