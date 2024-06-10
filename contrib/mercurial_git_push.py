@@ -474,18 +474,20 @@ class BaseReviewRequest(object):
 
         return (rev, text_type)
 
+    def _info_template(self):
+        if self.request.created_with_history:
+            return ('```{author} '
+                    '[{branch}] [graft: {graft}] '
+                    '```\n\n{desc}')
+        else:
+            return ('```{author} ({date}) [{node}] '
+                    '[{branch}] [graft: {graft}] '
+                    '[topic: {topic}]'
+                    '```\n\n{desc}')
+
     def info(self):
         if self._info is None:
-            if self.request.created_with_history:
-                template = ('```{author} '
-                            '[{branch}] [graft: {graft}] '
-                            '```\n\n{desc}')
-            else:
-                template = ('```{author} ({date}) [{node}] '
-                            '[{branch}] [graft: {graft}] '
-                            '[topic: {topic}]'
-                            '```\n\n{desc}')
-
+            template = self._info_template()
             self._info = []
             for changeset in self._changesets:
                 desc = self._replace_hashes(changeset.desc())
@@ -1001,6 +1003,14 @@ class GitReviewRequest(BaseReviewRequest):
                                                differ,
                                                web,
                                                topic)
+
+    def _info_template(self):
+        if self.request.created_with_history:
+            return BaseReviewRequest._info_template()
+        else:
+            return ('```{author} ({date}) [{node}] '
+                    '[{branch}]'
+                    '```\n\n{desc}')
 
     def _generate_diff_info(self):
         """Generate the diff if it has been changed."""
