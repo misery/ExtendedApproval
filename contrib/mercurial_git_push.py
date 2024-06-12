@@ -1567,16 +1567,6 @@ class BaseHook(object):
         return 1
 
     def _is_multi_head(self):
-        heads = MercurialRevision.fetch('head() and not closed()')
-        if heads is None:
-            raise HookError('Cannot fetch branch heads')
-
-        branches = []
-        for head in heads:
-            if head.branch() in branches:
-                return True
-            branches.append(head.branch())
-
         return False
 
     def _is_multi_head_forbidden(self):
@@ -1650,6 +1640,19 @@ class MercurialHook(BaseHook):
 
         if self.repo_name is None:
             self.repo_name = os.environ['HG_PENDING']
+
+    def _is_multi_head(self):
+        heads = MercurialRevision.fetch('head() and not closed()')
+        if heads is None:
+            raise HookError('Cannot fetch branch heads')
+
+        branches = []
+        for head in heads:
+            if head.branch() in branches:
+                return True
+            branches.append(head.branch())
+
+        return False
 
     def _list_of_incoming(self, node):
         """Return a list of all changesets after (and including) node.
