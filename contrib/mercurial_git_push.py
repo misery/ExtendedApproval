@@ -1807,7 +1807,9 @@ def set_git_push_options():
         optionCount = int(os.environ[GIT_OPT_COUNT])
         for option in range(0, optionCount):
             value = os.environ['GIT_PUSH_OPTION_' + str(option)].split('=', 1)
-            GIT_OPTIONS[value[0]] = value[1] if len(value) > 1 else None
+            GIT_OPTIONS[value[0].upper()] = (value[1]
+                                             if len(value) > 1
+                                             else None)
 
 
 def set_topic_usage():
