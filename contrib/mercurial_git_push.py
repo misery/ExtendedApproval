@@ -1785,7 +1785,7 @@ def process_git_hook(stdin, log):
 
 def get_logging_level(logging):
     DEBUG = 'HG_USERVAR_DEBUG'
-    ENABLED = ('true', 'on', '1')
+    ENABLED = ('true', 'on', '1', '')
     if (
         DEBUG in os.environ and os.environ[DEBUG].lower() in ENABLED
         or 'DEBUG' in GIT_OPTIONS and (
