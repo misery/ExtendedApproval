@@ -463,17 +463,17 @@ class BaseReviewRequest(object):
             content = self._web_node_regex.sub(self._web_backref, content)
         return content
 
-    def _markdown_rev(self, changesets):
+    def _markdown_rev(self, rev):
         text_type = 'plain'
 
         if self._web is not None:
             text_type = 'markdown'
+            splitChar = ','
             revs = []
-            for changeset in changesets:
-                node = changeset.node(True)
+            for node in rev.split(splitChar):
                 web = self._web.format(node)
                 revs.append('[{0}]({1})'.format(node, web))
-            rev = ','.join(revs)
+            rev = splitChar.join(revs)
 
         return (rev, text_type)
 
@@ -518,7 +518,7 @@ class BaseReviewRequest(object):
                         i = ''
                         t = '+ [{node}] {summary}\n'
                         for rev in changes:
-                            node, _ = self._markdown_rev([rev])
+                            node, _ = self._markdown_rev(rev.node(True))
                             summary = self._replace_hashes(rev.summary())
                             i += t.format(node=node, summary=summary)
                         return i
@@ -560,7 +560,7 @@ class BaseReviewRequest(object):
 
     def close(self):
         """Close the given review request with a message."""
-        rev, text_type = self._markdown_rev(self.changesets())
+        rev, text_type = self._markdown_rev(self.nodes())
         msg = 'Automatically closed by a push (hook): %s' % rev
         self.request.update(status='submitted',
                             close_description=msg,
