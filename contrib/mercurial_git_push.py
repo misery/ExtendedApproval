@@ -151,6 +151,7 @@ new file mode 100644
 HG = 'hg'
 USE_TOPICS = True
 TOPIC = None
+GIT_OPTIONS = None
 KEY = None
 
 
@@ -1784,17 +1785,29 @@ def process_git_hook(stdin, log):
 
 def get_logging_level(logging):
     DEBUG = 'HG_USERVAR_DEBUG'
-    if DEBUG in os.environ and os.environ[DEBUG].lower() in ('true', 'on'):
+    ENABLED = ('true', 'on', '1')
+    if (
+        DEBUG in os.environ and os.environ[DEBUG].lower() in ENABLED
+        or 'DEBUG' in GIT_OPTIONS and (
+            GIT_OPTIONS['DEBUG'] is None or
+            GIT_OPTIONS['DEBUG'].lower() in ENABLED
+        )
+    ):
         return logging.DEBUG
+
+    return logging.INFO
+
+
+def set_git_push_options():
+    global GIT_OPTIONS
+    GIT_OPTIONS = {}
 
     GIT_OPT_COUNT = 'GIT_PUSH_OPTION_COUNT'
     if GIT_OPT_COUNT in os.environ:
         optionCount = int(os.environ[GIT_OPT_COUNT])
         for option in range(0, optionCount):
-            if os.environ['GIT_PUSH_OPTION_' + str(option)] == 'DEBUG':
-                return logging.DEBUG
-
-    return logging.INFO
+            value = os.environ['GIT_PUSH_OPTION_' + str(option)].split('=', 1)
+            GIT_OPTIONS[value[0]] = value[1] if len(value) > 1 else None
 
 
 def set_topic_usage():
@@ -1811,14 +1824,19 @@ def set_topic_usage():
     USE_TOPICS = USE_TOPICS and rbversion >= '2'
 
 
+def set_globals():
+    set_git_push_options()
+    set_topic_usage()
+
+
 def hook(stdin=None):
     import logging
+
+    set_globals()
 
     logging.basicConfig(format='%(levelname)s: %(message)s',
                         level=get_logging_level(logging))
     logger = logging.getLogger('reviewboardhook')
-
-    set_topic_usage()
 
     try:
         log = partial(logger.info)
