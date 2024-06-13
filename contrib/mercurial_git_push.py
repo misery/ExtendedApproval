@@ -1819,8 +1819,12 @@ def set_topic_usage():
     TOPICENV = 'HG_USERVAR_TOPIC'
     if TOPICENV in os.environ:
         TOPIC = os.environ[TOPICENV]
+    elif 'TOPIC' in GIT_OPTIONS:
+        TOPIC = GIT_OPTIONS['TOPIC']
+
+    if TOPIC is not None:
         USE_TOPICS = TOPIC.lower() != 'off'
-        if TOPIC.lower() in ('on', 'off'):
+        if TOPIC.lower() in ('on', 'off', ''):
             TOPIC = None
 
     USE_TOPICS = USE_TOPICS and rbversion >= '2'
