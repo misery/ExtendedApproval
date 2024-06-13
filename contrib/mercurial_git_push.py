@@ -422,6 +422,9 @@ class BaseReviewRequest(object):
         """
         return None if self.request is None else self.request.id
 
+    def changesets(self):
+        return self._changesets
+
     def nodes(self, short=True):
         """Return changeset(s) as hex node."""
         nodes = []
@@ -1562,7 +1565,7 @@ class BaseHook(object):
                     r.close()
                 return 0
         elif idx > 0:
-            self._log_push_info(revreqs[idx - 1].node(True))
+            self._log_push_info(revreqs[idx - 1].changesets()[-1])
 
         return 1
 
@@ -1573,9 +1576,9 @@ class BaseHook(object):
         headAllowed = os.environ.get('HOOK_MULTI_HEAD_ALLOWED')
         return headAllowed is None or headAllowed.lower() != "on"
 
-    def _log_push_info(self, node=None):
-        self.log('If you want to push the already approved ')
-        self.log('changes, you can (probably) execute this:')
+    def _log_push_info(self, changeset):
+        self.log('If you want to push the already approved '
+                 'changes, you can (probably) execute this:')
 
     def _handle_review_request(self, request):
         """Handle given review request.
@@ -1672,9 +1675,9 @@ class MercurialHook(BaseHook):
                 self.web = path.rstrip('/') + '/rev/{0}'
                 break
 
-    def _log_push_info(self, node):
-        super(MercurialHook, self)._log_push_info(node)
-        self.log('hg push -r %s', node)
+    def _log_push_info(self, changeset):
+        super(MercurialHook, self)._log_push_info(changeset)
+        self.log('hg push -r %s', changeset.node(True))
 
 
 class GitHook(BaseHook):
@@ -1744,9 +1747,10 @@ class GitHook(BaseHook):
         """
         return GitRevision.fetch(node, self.base, self.refs)
 
-    def _log_push_info(self, node):
-        super(GitHook, self)._log_push_info(node)
-        self.log('git push origin %s:main', node)
+    def _log_push_info(self, changeset):
+        super(GitHook, self)._log_push_info(changeset)
+        self.log('git push origin %s:%s',
+                 changeset.node(True), changeset.branch())
 
 
 def process_mercurial_hook(stdin, log):
