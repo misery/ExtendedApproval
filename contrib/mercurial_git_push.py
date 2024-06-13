@@ -1746,7 +1746,7 @@ class GitHook(BaseHook):
 
     def _log_push_info(self, node):
         super(GitHook, self)._log_push_info(node)
-        self.log('git push origin %s:master', node)
+        self.log('git push origin %s:main', node)
 
 
 def process_mercurial_hook(stdin, log):
