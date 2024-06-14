@@ -1235,10 +1235,10 @@ class GitRevision(BaseRevision):
         self._refs = refs.replace('refs/heads/', '') if refs else None
         self._merges = None
 
-        pretty = '--pretty=format:%ai#%P#%GT#%G?#%GP#%an <%ae>#%B'
+        pretty = '--pretty=format:%aI#%P#%GT#%G?#%GP#%an <%ae>#%B'
         data = execute(['git', 'log', '-1', self._hash, pretty])
         data = data.split('#', 6)
-        self._date = data[0]
+        self._date = data[0].replace('T', ' ')
         self._parent = data[1].split()
         self._sign_trust = data[2]
         self._sign_verify = data[3]
