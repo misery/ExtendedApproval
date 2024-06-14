@@ -750,7 +750,7 @@ class BaseReviewRequest(object):
 
     def _get_depends_on_updated(self):
         if self._depends_on_updated is None:
-            self._depends_on_updated = self._get_depends_on().copy()
+            self._depends_on_updated = list(self._get_depends_on())
 
             changesetTopic = self._changesets[0].topic()
             if self._topic is None and changesetTopic is not None:
