@@ -1026,7 +1026,7 @@ class GitReviewRequest(BaseReviewRequest):
             base = self.base
 
         if len(self._changesets[0].parent()) > 0:
-            parent = self._changesets[0].node() + '^1'
+            parent = self._changesets[0].parent()[0]
         else:
             parent = initialCommit
 
