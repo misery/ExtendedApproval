@@ -1139,7 +1139,10 @@ class MercurialRevision(BaseRevision):
 
             d = self.json['date']
             offset = d[1] * -1
-            d = dt.datetime.fromtimestamp(d[0] + offset, dt.UTC)
+            if six.PY2:
+                d = dt.datetime.utcfromtimestamp(d[0] + offset)
+            else:
+                d = dt.datetime.fromtimestamp(d[0] + offset, dt.UTC)
             d = d.replace(tzinfo=Offset(offset))
             self._date = d.isoformat(str(' '))
 
@@ -1808,7 +1811,7 @@ def set_options():
         HG_ENV_PREFIX = 'HG_USERVAR_'
         for key, value in six.iteritems(os.environ):
             if key.startswith(HG_ENV_PREFIX):
-                OPTIONS[key.removeprefix(HG_ENV_PREFIX)] = value
+                OPTIONS[key[len(HG_ENV_PREFIX):]] = value
 
 
 def set_topic_usage():
