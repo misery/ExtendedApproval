@@ -1812,12 +1812,14 @@ def set_options():
 
 
 def set_topic_usage():
+    OPTIONS['USE_TOPICS'] = None
+
     if 'TOPIC' in OPTIONS:
         topic = OPTIONS['TOPIC'].lower()
         if topic in ('on', 'off', ''):
             del OPTIONS['TOPIC']
-        if topic != 'off':
-            OPTIONS['USE_TOPICS'] = None
+        if topic == 'off':
+            del OPTIONS['USE_TOPICS']
 
     if 'USE_TOPICS' in OPTIONS and rbversion < '2':
         del OPTIONS['USE_TOPICS']
