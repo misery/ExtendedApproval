@@ -880,6 +880,38 @@ class BaseReviewRequest(object):
 
         return found
 
+    def _check_and_set_fake_diff(self, diff_info, changesets):
+        pass
+
+    def _generate_diff(self, parent, node, base):
+        return self._differ.diff(parent, node, base, self.request.id)
+
+    def _generate_diff_info(self):
+        """Generate the diff if it has been changed.
+
+        Fake a diff if the diff cannot be created!
+        This will happend for the following commands:
+        - A commit for new branch: "hg branch" and "hg push --new-branch"
+        - A commit to close a branch: "hg commit --close-branch"
+        """
+        self.diff_info = self._generate_diff(self._changesets[0].parent(),
+                                             self._changesets[-1].node(),
+                                             self.base)
+        self._check_and_set_fake_diff(self.diff_info, self._changesets)
+
+        self.diff_info_commits = {}
+        if self.request.created_with_history:
+            if len(self._changesets) == 1:
+                node = self._changesets[0].node()
+                self.diff_info_commits[node] = self.diff_info
+            else:
+                for changeset in self._changesets:
+                    info = self._generate_diff(changeset.parent(),
+                                               changeset.node(),
+                                               None)
+                    self._check_and_set_fake_diff(info, [changeset])
+                    self.diff_info_commits[changeset.node()] = info
+
 
 class MercurialReviewRequest(BaseReviewRequest):
     def __init__(self, root, repo, changeset, base,
@@ -965,34 +997,6 @@ class MercurialReviewRequest(BaseReviewRequest):
                                            b'\n'.join(content))
             diff_info.setDiff(fake_diff)
 
-    def _generate_diff_info(self):
-        """Generate the diff if it has been changed.
-
-        Fake a diff if the diff cannot be created!
-        This will happend for the following commands:
-        - A commit for new branch: "hg branch" and "hg push --new-branch"
-        - A commit to close a branch: "hg commit --close-branch"
-        """
-        self.diff_info = self._differ.diff(self._changesets[0].parent(),
-                                           self._changesets[-1].node(),
-                                           self.base,
-                                           self.request.id)
-        self._check_and_set_fake_diff(self.diff_info, self._changesets)
-
-        self.diff_info_commits = {}
-        if self.request.created_with_history:
-            if len(self._changesets) == 1:
-                node = self._changesets[0].node()
-                self.diff_info_commits[node] = self.diff_info
-            else:
-                for changeset in self._changesets:
-                    info = self._differ.diff(changeset.parent(),
-                                             changeset.node(),
-                                             None,
-                                             self.request.id)
-                    self._check_and_set_fake_diff(info, [changeset])
-                    self.diff_info_commits[changeset.node()] = info
-
 
 class GitReviewRequest(BaseReviewRequest):
     def __init__(self, root, repo, changeset, base,
@@ -1014,26 +1018,19 @@ class GitReviewRequest(BaseReviewRequest):
                     '[{branch}]'
                     '```\n\n{desc}')
 
-    def _generate_diff_info(self):
-        """Generate the diff if it has been changed."""
-
+    def _generate_diff(self, parent, node, base):
         # git hash-object -t tree /dev/null
         initialCommit = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
-        if self.base == '0000000000000000000000000000000000000000':
+        if base == '0000000000000000000000000000000000000000':
             base = initialCommit
-        else:
-            base = self.base
 
-        if len(self._changesets[0].parent()) > 0:
-            parent = self._changesets[0].parent()[0]
-        else:
+        if parent is None:
             parent = initialCommit
 
-        self.diff_info = self._differ.diff(parent,
-                                           self._changesets[0].node(),
-                                           base,
-                                           self.request.id)
+        return super(GitReviewRequest, self)._generate_diff(parent,
+                                                            node,
+                                                            base)
 
 
 class MercurialGitHookCmd(BaseCommand):
@@ -1265,7 +1262,7 @@ class GitRevision(BaseRevision):
         return None
 
     def parent(self):
-        return self._parent
+        return None if len(self._parent) == 0 else self._parent[0]
 
     def node(self, short=False):
         return self._hash[:12] if short else self._hash
@@ -1464,8 +1461,6 @@ class BaseHook(object):
 
         if self.base is None and len(changesets) > 0:
             self.base = changesets[0].parent()
-            if isinstance(self.base, list):
-                self.base = self.base[0]
 
         return self._handle_changeset_list_process(node, changesets)
 
@@ -1731,7 +1726,7 @@ class GitHook(BaseHook):
 
         if len(changesets) > 1:
             for rev in changesets:
-                if len(rev.parent()) > 1:
+                if rev.isMerge():
                     self.log('Merge cannot be pushed with other commits: %s',
                              rev.node())
                     return 1
