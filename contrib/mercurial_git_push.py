@@ -1784,10 +1784,8 @@ def process_git_hook(stdin, log):
 
 def get_logging_level(logging):
     if (
-        'DEBUG' in OPTIONS and (
-            OPTIONS['DEBUG'] is None or
+        'DEBUG' in OPTIONS and
             OPTIONS['DEBUG'].lower() in ('true', 'on', '1', '')
-        )
     ):
         return logging.DEBUG
 
@@ -1805,7 +1803,7 @@ def set_options():
             value = os.environ['GIT_PUSH_OPTION_' + str(option)].split('=', 1)
             OPTIONS[value[0].upper()] = (value[1]
                                          if len(value) > 1
-                                         else None)
+                                         else '')
     else:
         HG_ENV_PREFIX = 'HG_USERVAR_'
         for key, value in six.iteritems(os.environ):
@@ -1814,15 +1812,15 @@ def set_options():
 
 
 def set_topic_usage():
-    if rbversion >= '2':
-        OPTIONS['USE_TOPICS'] = None
-
     if 'TOPIC' in OPTIONS:
         topic = OPTIONS['TOPIC'].lower()
         if topic in ('on', 'off', ''):
             del OPTIONS['TOPIC']
-        if topic == 'off' and 'USE_TOPICS' in OPTIONS:
-            del OPTIONS['USE_TOPICS']
+        if topic != 'off':
+            OPTIONS['USE_TOPICS'] = None
+
+    if 'USE_TOPICS' in OPTIONS and rbversion < '2':
+        del OPTIONS['USE_TOPICS']
 
 
 def set_globals():
