@@ -887,13 +887,6 @@ class BaseReviewRequest(object):
         return self._differ.diff(parent, node, base, self.request.id)
 
     def _generate_diff_info(self):
-        """Generate the diff if it has been changed.
-
-        Fake a diff if the diff cannot be created!
-        This will happend for the following commands:
-        - A commit for new branch: "hg branch" and "hg push --new-branch"
-        - A commit to close a branch: "hg commit --close-branch"
-        """
         self.diff_info = self._generate_diff(self._changesets[0].parent(),
                                              self._changesets[-1].node(),
                                              self.base)
@@ -987,6 +980,13 @@ class MercurialReviewRequest(BaseReviewRequest):
         return json.dumps(hashes)
 
     def _check_and_set_fake_diff(self, diff_info, changesets):
+        """Generate the diff if it has been changed.
+
+        Fake a diff if the diff cannot be created!
+        This will happend for the following commands:
+        - A commit for new branch: "hg branch" and "hg push --new-branch"
+        - A commit to close a branch: "hg commit --close-branch"
+        """
         if diff_info.getDiff() is None:
             content = []
             for changeset in changesets:
