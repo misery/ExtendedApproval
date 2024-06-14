@@ -657,9 +657,9 @@ class BaseReviewRequest(object):
                                   author_name=changeset.authorName(),
                                   author_email=changeset.mail(),
                                   author_date=changeset.date(),
-                                  # committer_name=self.submitter,
-                                  # committer_email=,
-                                  # committer_date=changeset.date()
+                                  committer_name=changeset.authorName(),
+                                  committer_email=changeset.mail(),
+                                  committer_date=changeset.date()
                                   )
 
         diff.finalize_commit_series(cumulative_diff=d.getDiff(),
@@ -1012,7 +1012,7 @@ class GitReviewRequest(BaseReviewRequest):
 
     def _info_template(self):
         if self.request.created_with_history:
-            return BaseReviewRequest._info_template()
+            return super(GitReviewRequest, self)._info_template()
         else:
             return ('```{author} ({date}) [{node}] '
                     '[{branch}]'
