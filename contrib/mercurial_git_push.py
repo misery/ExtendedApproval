@@ -149,9 +149,7 @@ new file mode 100644
 '''
 
 HG = 'hg'
-USE_TOPICS = True
-TOPIC = None
-GIT_OPTIONS = None
+OPTIONS = None
 KEY = None
 
 
@@ -1473,7 +1471,8 @@ class BaseHook(object):
         nontopicchanges = []
         currentTopic = None
         for changeset in changesets:
-            topic = changeset.topic() if TOPIC is None else TOPIC
+            topicOption = OPTIONS.get('TOPIC')
+            topic = changeset.topic() if topicOption is None else topicOption
             if topic:
                 if currentTopic is None:
                     currentTopic = topic
@@ -1493,7 +1492,7 @@ class BaseHook(object):
         return (topicchanges, nontopicchanges)
 
     def _get_changeset_topics(self, changesets):
-        if USE_TOPICS:
+        if 'USE_TOPICS' in OPTIONS:
             return self._extract_changeset_topics(changesets)
         else:
             return ([], changesets)
@@ -1788,9 +1787,9 @@ def get_logging_level(logging):
     ENABLED = ('true', 'on', '1', '')
     if (
         DEBUG in os.environ and os.environ[DEBUG].lower() in ENABLED
-        or 'DEBUG' in GIT_OPTIONS and (
-            GIT_OPTIONS['DEBUG'] is None or
-            GIT_OPTIONS['DEBUG'].lower() in ENABLED
+        or 'DEBUG' in OPTIONS and (
+            OPTIONS['DEBUG'] is None or
+            OPTIONS['DEBUG'].lower() in ENABLED
         )
     ):
         return logging.DEBUG
@@ -1798,40 +1797,39 @@ def get_logging_level(logging):
     return logging.INFO
 
 
-def set_git_push_options():
-    global GIT_OPTIONS
-    GIT_OPTIONS = {}
+def set_options():
+    global OPTIONS
+    OPTIONS = {}
 
     GIT_OPT_COUNT = 'GIT_PUSH_OPTION_COUNT'
     if GIT_OPT_COUNT in os.environ:
         optionCount = int(os.environ[GIT_OPT_COUNT])
         for option in range(0, optionCount):
             value = os.environ['GIT_PUSH_OPTION_' + str(option)].split('=', 1)
-            GIT_OPTIONS[value[0].upper()] = (value[1]
-                                             if len(value) > 1
-                                             else None)
+            OPTIONS[value[0].upper()] = (value[1]
+                                         if len(value) > 1
+                                         else None)
+    else:
+        HG_ENV_PREFIX = 'HG_USERVAR_'
+        for key, value in six.iteritems(os.environ):
+            if key.startswith(HG_ENV_PREFIX):
+                OPTIONS[key.removeprefix(HG_ENV_PREFIX)] = value
 
 
 def set_topic_usage():
-    global USE_TOPICS
-    global TOPIC
+    if rbversion >= '2':
+        OPTIONS['USE_TOPICS'] = None
 
-    TOPICENV = 'HG_USERVAR_TOPIC'
-    if TOPICENV in os.environ:
-        TOPIC = os.environ[TOPICENV]
-    elif 'TOPIC' in GIT_OPTIONS:
-        TOPIC = GIT_OPTIONS['TOPIC']
-
-    if TOPIC is not None:
-        USE_TOPICS = TOPIC.lower() != 'off'
-        if TOPIC.lower() in ('on', 'off', ''):
-            TOPIC = None
-
-    USE_TOPICS = USE_TOPICS and rbversion >= '2'
+    if 'TOPIC' in OPTIONS:
+        topic = OPTIONS['TOPIC'].lower()
+        if topic in ('on', 'off', ''):
+            del OPTIONS['TOPIC']
+        if topic == 'off' and 'USE_TOPICS' in OPTIONS:
+            del OPTIONS['USE_TOPICS']
 
 
 def set_globals():
-    set_git_push_options()
+    set_options()
     set_topic_usage()
 
 
