@@ -616,7 +616,11 @@ class BaseReviewRequest(object):
         if self.diff_info is None:
             self._generate_diff_info()
 
-        if not self.existing or self.diffset_id is None:
+        if (
+            not self.existing
+            or self.diffset_id is None
+            or 'UPDATE' in OPTIONS
+        ):
             return False
 
         e = self.request.extra_data
