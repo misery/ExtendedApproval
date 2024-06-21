@@ -1466,7 +1466,7 @@ class BaseHook(object):
         if self.base is None and len(changesets) > 0:
             self.base = changesets[0].parent()
 
-        return self._handle_changeset_list_process(node, changesets)
+        return self._handle_changeset_list_process(changesets)
 
     def _extract_changeset_topics(self, changesets):
         topicchanges = {}
@@ -1499,7 +1499,7 @@ class BaseHook(object):
         else:
             return ([], changesets)
 
-    def _handle_changeset_list_process(self, node, changesets):
+    def _handle_changeset_list_process(self, changesets):
         topicchanges, changesets = self._get_changeset_topics(changesets)
         revreqs = []
 
@@ -1724,7 +1724,7 @@ class GitHook(BaseHook):
 
         return True
 
-    def _handle_changeset_list_process(self, node, changesets):
+    def _handle_changeset_list_process(self, changesets):
         if not self._check_signatures(changesets):
             return 1
 
@@ -1735,8 +1735,7 @@ class GitHook(BaseHook):
                              rev.node())
                     return 1
 
-        return super(GitHook, self)._handle_changeset_list_process(node,
-                                                                   changesets)
+        return super(GitHook, self)._handle_changeset_list_process(changesets)
 
     def _list_of_incoming(self, node):
         """Return a list of all changesets after (and including) node.
