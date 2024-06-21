@@ -1140,7 +1140,7 @@ class MercurialRevision(BaseRevision):
 
             d = self.json['date']
             offset = d[1] * -1
-            if six.PY2:
+            if sys.hexversion < 0x030b00f0:
                 d = dt.datetime.utcfromtimestamp(d[0] + offset)
             else:
                 d = dt.datetime.fromtimestamp(d[0] + offset, dt.UTC)
