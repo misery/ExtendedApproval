@@ -1637,7 +1637,7 @@ class BaseHook(object):
 class MercurialHook(BaseHook):
     """Class to represent a hook for Mercurial repositories."""
 
-    def __init__(self, log, repo=None):
+    def __init__(self, log):
         super(MercurialHook, self).__init__(log,
                                             'Mercurial',
                                             MercurialReviewRequest,
@@ -1685,7 +1685,7 @@ class MercurialHook(BaseHook):
 class GitHook(BaseHook):
     """Class to represent a hook for Git repositories."""
 
-    def __init__(self, log, base, refs, repo=None):
+    def __init__(self, log, base, refs):
         super(GitHook, self).__init__(log,
                                       'Git',
                                       GitReviewRequest,
