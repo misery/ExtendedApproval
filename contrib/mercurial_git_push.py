@@ -344,7 +344,7 @@ class GitDiffer(BaseDiffer):
 class BaseReviewRequest(object):
     """A class to represent a review request from a Mercurial hook."""
 
-    def __init__(self, root, repo, changesets, base,
+    def __init__(self, root, repo, changesets,
                  submitter, differ, web, topic):
         """Initialize object with the given information.
 
@@ -357,9 +357,6 @@ class BaseReviewRequest(object):
 
             changesets (list of MercurialRevisions):
                 A list of MercurialRevision objects.
-
-            base (unicode):
-                A revision of parent changeset.
 
             submitter (unicode):
                 The username of current submitter.
@@ -380,7 +377,6 @@ class BaseReviewRequest(object):
         self._topic = topic
         self._changesets = changesets
         self._check_changesets()
-        self.base = base
         self.commit_id = self._generate_commit_id()
         self.diff_info = None
         self.diff_info_commits = None
@@ -893,7 +889,7 @@ class BaseReviewRequest(object):
     def _generate_diff_info(self):
         self.diff_info = self._generate_diff(self._changesets[0].parent(),
                                              self._changesets[-1].node(),
-                                             self.base)
+                                             self._changesets[0].base())
         self._check_and_set_fake_diff(self.diff_info, self._changesets)
 
         self.diff_info_commits = {}
@@ -911,12 +907,11 @@ class BaseReviewRequest(object):
 
 
 class MercurialReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base,
+    def __init__(self, root, repo, changeset,
                  submitter, differ, web, topic):
         super(MercurialReviewRequest, self).__init__(root,
                                                      repo,
                                                      changeset,
-                                                     base,
                                                      submitter,
                                                      differ,
                                                      web,
@@ -1003,12 +998,11 @@ class MercurialReviewRequest(BaseReviewRequest):
 
 
 class GitReviewRequest(BaseReviewRequest):
-    def __init__(self, root, repo, changeset, base,
+    def __init__(self, root, repo, changeset,
                  submitter, differ, web, topic):
         super(GitReviewRequest, self).__init__(root,
                                                repo,
                                                changeset,
-                                               base,
                                                submitter,
                                                differ,
                                                web,
@@ -1075,19 +1069,31 @@ class BaseRevision(object):
 class MercurialRevision(BaseRevision):
     """Class to represent information of changeset."""
     @staticmethod
-    def fetch(revset):
+    def fetch_base(current, changes):
+        for change in changes:
+            if current['parents'][0] == change['node']:
+                return MercurialRevision.fetch_base(change, changes)
+        return current['parents'][0]
+
+    @staticmethod
+    def fetch(revset, fetch_base=False):
         changes = execute([HG, 'log', '--debug',
                            '--config', 'ui.message-output=stderr',
                            '-r', revset, '--template', 'json'],
                           with_errors=False,
                           return_errors=False)
 
+        changes = json.loads(changes)
         result = []
-        for entry in json.loads(changes):
-            result.append(MercurialRevision(entry))
+        for entry in changes:
+            if fetch_base:
+                base = MercurialRevision.fetch_base(entry, changes)
+            else:
+                base = None
+            result.append(MercurialRevision(entry, base))
         return result
 
-    def __init__(self, json):
+    def __init__(self, json, base):
         super(MercurialRevision, self).__init__()
         self.json = json
         self._date = None
@@ -1095,6 +1101,7 @@ class MercurialRevision(BaseRevision):
         self._diffstat = None
         self._graft_source = None
         self._raw_data = None
+        self._base = base
 
     def topic(self):
         if 'extra' in self.json and 'topic' in self.json['extra']:
@@ -1114,6 +1121,9 @@ class MercurialRevision(BaseRevision):
             return self._graft_source[:12] if short else self._graft_source
 
         return None
+
+    def base(self):
+        return self._base
 
     def parent(self, short=False):
         p = self.json['parents'][0]
@@ -1230,13 +1240,14 @@ class GitRevision(BaseRevision):
                 known = execute(['git', 'branch', '--contains', entry])
                 if len(known) > 0:
                     continue
-            result.append(GitRevision(entry, refs))
+            result.append(GitRevision(entry, refs, base))
         return result
 
-    def __init__(self, hashnode, refs):
+    def __init__(self, hashnode, refs, base):
         super(GitRevision, self).__init__()
         self._hash = hashnode
         self._refs = refs.replace('refs/heads/', '') if refs else None
+        self._base = base
         self._merges = None
 
         pretty = '--pretty=format:%aI#%P#%GT#%G?#%GP#%an <%ae>#%B'
@@ -1264,6 +1275,9 @@ class GitRevision(BaseRevision):
 
     def graft(self):
         return None
+
+    def base(self):
+        return self._base
 
     def parent(self):
         return None if len(self._parent) == 0 else self._parent[0]
@@ -1322,7 +1336,6 @@ class BaseHook(object):
         self.repo_id = None
         self.root = None
         self.web = None
-        self.base = None
         self.name = name
         self.review_request_class = review_request_class
         self.review_differ_class = review_differ_class
@@ -1463,9 +1476,6 @@ class BaseHook(object):
         changesets = self._list_of_incoming(node)
         self.log('Processing %d changeset(s)...', len(changesets))
 
-        if self.base is None and len(changesets) > 0:
-            self.base = changesets[0].parent()
-
         return self._handle_changeset_list_process(changesets)
 
     def _extract_changeset_topics(self, changesets):
@@ -1523,7 +1533,6 @@ class BaseHook(object):
         request = self.review_request_class(self.root,
                                             self.repo_id,
                                             changesets,
-                                            self.base,
                                             self.submitter,
                                             self._differ,
                                             self.web,
@@ -1668,7 +1677,7 @@ class MercurialHook(BaseHook):
             list of object:
             The list of MercurialRevision.
         """
-        return MercurialRevision.fetch(node + ':')
+        return MercurialRevision.fetch(node + ':', True)
 
     def _set_repo_id(self):
         r = super(MercurialHook, self)._set_repo_id()
