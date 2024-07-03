@@ -579,7 +579,12 @@ class BaseReviewRequest(object):
             raise HookError('Topic is required for multiple commits')
 
         branch = None
+        prevNode = None
         for changeset in self._changesets:
+            if prevNode is not None and changeset.parent() != prevNode:
+                raise HookError('Topic may only be linear: %s' % self._topic)
+            prevNode = changeset.node()
+
             if changeset.isMerge():
                 raise HookError('Topic changeset is a merge: '
                                 '%s' % changeset.node())
