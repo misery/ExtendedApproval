@@ -1332,8 +1332,6 @@ class GitRevision(BaseRevision):
 
 
 class BaseHook(object):
-    """Class to represent a hook for Mercurial repositories."""
-
     def __init__(self, log, name, review_request_class, review_differ_class):
         self.log = log
         self.submitter = None
