@@ -1735,11 +1735,11 @@ class GitHook(BaseHook):
         return super(GitHook, self)._handle_changeset_list_process(changesets)
 
     def _list_of_incoming(self, lines):
-        if len(lines) > 1:
-            raise HookError('Push of multiple branches not supported')
-
-        (base, node, ref) = lines[0].split()
-        return GitRevision.fetch(node, base, ref)
+        revs = []
+        for line in lines:
+            (base, node, ref) = line.split()
+            revs.extend(GitRevision.fetch(node, base, ref))
+        return revs
 
     def _log_push_info(self, changeset):
         super(GitHook, self)._log_push_info(changeset)
