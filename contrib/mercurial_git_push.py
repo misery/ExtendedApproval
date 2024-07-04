@@ -1754,9 +1754,8 @@ def process_mercurial_hook(stdin, log):
         os.environ['CHGHG'] = HG
         HG = CHG
 
-    h = MercurialHook(log)
     node = os.environ.get('HG_NODE')
-    return h.push_to_reviewboard(node)
+    return MercurialHook(log).push_to_reviewboard(node)
 
 
 def process_git_hook(stdin, log):
