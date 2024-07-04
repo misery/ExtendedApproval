@@ -1232,6 +1232,9 @@ class GitRevision(BaseRevision):
     """Class to represent information of changeset."""
     @staticmethod
     def fetch(node, base, refs=None, skipKnown=True):
+        if node == '0000000000000000000000000000000000000000':
+            return []
+
         if base == '0000000000000000000000000000000000000000':
             rev = node
         else:
