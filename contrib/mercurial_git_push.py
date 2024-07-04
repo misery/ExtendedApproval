@@ -1465,20 +1465,9 @@ class BaseHook(object):
             for r in revreqs
         )
 
-    def _handle_changeset_list(self, node):
-        """Process all incoming changesets.
-
-        Args:
-            node (unicode):
-                The hex of the first changeset.
-
-        Returns:
-            int:
-            0 on success, otherwise non-zero.
-        """
-        changesets = self._list_of_incoming(node)
+    def _handle_changeset_list(self, pushinfo):
+        changesets = self._list_of_incoming(pushinfo)
         self.log('Processing %d changeset(s)...', len(changesets))
-
         return self._handle_changeset_list_process(changesets)
 
     def _extract_changeset_topics(self, changesets):
@@ -1625,7 +1614,7 @@ class BaseHook(object):
             self.log('Created review request (%d) for '
                      'changeset(s): %s', request.id(), request.nodes())
 
-    def push_to_reviewboard(self, node):
+    def push_to_reviewboard(self, pushinfo):
         """Run the hook.
 
         Returns:
@@ -1635,15 +1624,15 @@ class BaseHook(object):
         self.log('Push as user "%s" to "%s"...',
                  self.submitter, self.repo_name)
 
-        if node is None or len(node) == 0:
-            raise HookError('Initial changeset is undefined.')
+        if pushinfo is None or len(pushinfo) == 0:
+            raise HookError('Initial information is undefined.')
 
         if self.submitter is None or self.repo_name is None:
             raise HookError('Cannot detect submitter or repository.')
 
         self._set_root()
         self._set_repo_id()
-        return self._handle_changeset_list(node)
+        return self._handle_changeset_list(pushinfo)
 
 
 class MercurialHook(BaseHook):
@@ -1697,15 +1686,11 @@ class MercurialHook(BaseHook):
 class GitHook(BaseHook):
     """Class to represent a hook for Git repositories."""
 
-    def __init__(self, log, base, refs):
+    def __init__(self, log):
         super(GitHook, self).__init__(log,
                                       'Git',
                                       GitReviewRequest,
                                       GitDiffer)
-
-        self.refs = refs
-        self.base = base
-
         if self.repo_name is None:
             if os.environ.get('GIT_DIR') == '.':
                 self.repo_name = os.getcwd()
@@ -1749,16 +1734,12 @@ class GitHook(BaseHook):
 
         return super(GitHook, self)._handle_changeset_list_process(changesets)
 
-    def _list_of_incoming(self, node):
-        """Return a list of all changesets after (and including) node.
+    def _list_of_incoming(self, lines):
+        if len(lines) > 1:
+            raise HookError('Push of multiple branches not supported')
 
-        Assumes that all incoming changeset have subsequent revision numbers.
-
-        Returns:
-            list of object:
-            The list of GitRevision.
-        """
-        return GitRevision.fetch(node, self.base, self.refs)
+        (base, node, ref) = lines[0].split()
+        return GitRevision.fetch(node, base, ref)
 
     def _log_push_info(self, changeset):
         super(GitHook, self)._log_push_info(changeset)
@@ -1786,13 +1767,7 @@ def process_git_hook(stdin, log):
     else:
         lines = stdin.splitlines()
 
-    if len(lines) > 1:
-        log('Push of multiple branches not supported')
-        return 1
-
-    (base, node, ref) = lines[0].split()
-    h = GitHook(log, base, ref)
-    return h.push_to_reviewboard(node)
+    return GitHook(log).push_to_reviewboard(lines)
 
 
 def get_logging_level(logging):
