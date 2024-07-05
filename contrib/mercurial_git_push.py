@@ -1230,6 +1230,15 @@ class MercurialRevision(BaseRevision):
 
 class GitRevision(BaseRevision):
     """Class to represent information of changeset."""
+
+    @staticmethod
+    def fetch_known_branches(rev):
+        output = execute(['git', 'branch', '--contains', rev])
+        branches = []
+        for branch in output.splitlines():
+            branches.append(branch.replace('*', '').strip())
+        return branches
+
     @staticmethod
     def fetch(node, base, refs=None, skipKnown=True):
         if node == '0000000000000000000000000000000000000000':
@@ -1245,8 +1254,8 @@ class GitRevision(BaseRevision):
         result = []
         for entry in changes:
             if skipKnown:
-                known = execute(['git', 'branch', '--contains', entry])
-                if len(known) > 0:
+                knownBranches = GitRevision.fetch_known_branches(entry)
+                if len(knownBranches) > 0:
                     continue
             result.append(GitRevision(entry, refs, base))
         return result
