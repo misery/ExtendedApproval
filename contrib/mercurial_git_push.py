@@ -1247,7 +1247,7 @@ class GitRevision(BaseRevision):
         return branches
 
     @staticmethod
-    def fetch(node, base, refs=None, skipKnown=True):
+    def fetch_raw(node, base, skipKnown=True):
         if node == '0000000000000000000000000000000000000000':
             return []
 
@@ -1258,12 +1258,17 @@ class GitRevision(BaseRevision):
         changes = execute(['git', 'rev-list', rev]).splitlines()
         changes.reverse()
 
+        if skipKnown:
+            def isKnown(rev):
+                return len(GitRevision.fetch_known_branches(rev)) > 0
+            changes[:] = [x for x in changes if not isKnown(x)]
+        return changes
+
+    @staticmethod
+    def fetch(node, base, refs=None, skipKnown=True):
+        changes = GitRevision.fetch_raw(node, base, skipKnown)
         result = []
         for entry in changes:
-            if skipKnown:
-                knownBranches = GitRevision.fetch_known_branches(entry)
-                if len(knownBranches) > 0:
-                    continue
             result.append(GitRevision(entry, refs, base))
         return result
 
