@@ -1308,8 +1308,8 @@ class GitRevision(BaseRevision):
     def base(self):
         return self._base
 
-    def parent(self):
-        return None if len(self._parent) == 0 else self._parent[0]
+    def parent(self, idx=0):
+        return self._parent[idx] if idx < len(self._parent) else None
 
     def node(self, short=False):
         return self._hash[:12] if short else self._hash
@@ -1747,7 +1747,10 @@ class GitHook(BaseHook):
 
         if len(changesets) > 1:
             for rev in changesets:
-                if rev.isMerge():
+                if (
+                    rev.isMerge() and
+                    len(GitRevision.fetch_known_branches(rev.parent(1))) == 0
+                ):
                     self.log('Merge cannot be pushed with other commits: %s',
                              rev.node())
                     return 1
