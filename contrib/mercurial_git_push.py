@@ -1582,7 +1582,7 @@ class BaseHook(object):
         if idx is None:
             if self._is_multi_head_forbidden() and self._is_multi_head():
                 self.log('Multiple heads per branch are forbidden!')
-            else:
+            elif 'DEBUGFAIL' not in OPTIONS:
                 for r in revreqs:
                     self.log('Closing review request: %s', r.id())
                     r.close()
