@@ -1565,7 +1565,7 @@ class BaseHook(object):
         """Handle approved review requests.
 
         Args:
-            revreqs (list of rbtools.hooks.mercurial.MercurialReviewRequest):
+            revreqs
                 All processed review requests.
 
         Returns:
