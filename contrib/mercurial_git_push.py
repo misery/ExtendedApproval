@@ -445,17 +445,18 @@ class BaseReviewRequest(object):
 
     def skippable(self):
         if self._skippable is None:
+            self._skippable = False
             regex = r'Reviewed at https://'
 
             for changeset in self._changesets:
                 if changeset.summary().startswith('SKIP'):
                     self._skippable = True
                     self._failure = 'Starts with SKIP'
+                    break
                 elif re.search(regex, changeset.desc()):
                     self._skippable = True
                     self._failure = 'Description contains: "%s"' % regex
-                else:
-                    self._skippable = False
+                    break
 
         return self._skippable
 
