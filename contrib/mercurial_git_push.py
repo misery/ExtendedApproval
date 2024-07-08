@@ -1477,10 +1477,10 @@ class BaseHook(object):
         """Check if a summary or commit_id is already used during this push.
 
         Args:
-            req (rbtools.hooks.mercurial.MercurialReviewRequest):
+            req
                 A review request object.
 
-            revreqs (list of rbtools.hooks.mercurial.MercurialReviewRequest):
+            revreqs
                 All previous review requests.
 
         Returns:
@@ -1614,7 +1614,7 @@ class BaseHook(object):
         """Handle given review request.
 
         Args:
-            request (rbtools.hooks.mercurial.MercurialReviewRequest):
+            request
                 A review request object.
         """
         if request.skippable():
