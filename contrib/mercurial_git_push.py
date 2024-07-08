@@ -398,9 +398,9 @@ class BaseReviewRequest(object):
 
         r = self._get_request()
         self.request = r
-        self.existing = False if r is None else True
-        self.failure = None if r is None else r.approval_failure
-        self.approved = False if r is None or self.skippable() else r.approved
+        self._existing = False if r is None else True
+        self._failure = None if r is None else r.approval_failure
+        self._approved = False if r is None or self.skippable() else r.approved
 
         self.diffset_id = None
         if r is not None and 'latest_diff' in r.links:
@@ -416,6 +416,12 @@ class BaseReviewRequest(object):
 
         """
         return None if self.request is None else self.request.id
+
+    def approved(self):
+        return self._approved
+
+    def failure(self):
+        return self._failure
 
     def changesets(self):
         return self._changesets
@@ -444,10 +450,10 @@ class BaseReviewRequest(object):
             for changeset in self._changesets:
                 if changeset.summary().startswith('SKIP'):
                     self._skippable = True
-                    self.failure = 'Starts with SKIP'
+                    self._failure = 'Starts with SKIP'
                 elif re.search(regex, changeset.desc()):
                     self._skippable = True
-                    self.failure = 'Description contains: "%s"' % regex
+                    self._failure = 'Description contains: "%s"' % regex
                 else:
                     self._skippable = False
 
@@ -538,7 +544,7 @@ class BaseReviewRequest(object):
             Boolean:
             True if review request exists, otherwise False.
         """
-        return self.existing
+        return self._existing
 
     def modified(self):
         """Return modified state of review request.
@@ -618,7 +624,7 @@ class BaseReviewRequest(object):
             self._generate_diff_info()
 
         if (
-            not self.existing
+            not self.exists()
             or self.diffset_id is None
             or 'UPDATE' in OPTIONS
         ):
@@ -674,7 +680,7 @@ class BaseReviewRequest(object):
 
     def _update(self):
         """Update review request draft based on changeset."""
-        self.approved = False
+        self._approved = False
         extra_data = None
         draft = self.request.get_or_create_draft(only_fields='',
                                                  only_links='update,'
@@ -1575,7 +1581,7 @@ class BaseHook(object):
         idx = None
 
         for i, r in enumerate(revreqs):
-            if not r.approved:
+            if not r.approved():
                 idx = i
                 break
 
@@ -1612,7 +1618,7 @@ class BaseHook(object):
         """
         if request.skippable():
             self.log('Skip changeset(s): %s | %s',
-                     request.nodes(), request.failure)
+                     request.nodes(), request.failure())
             return
 
         if request.exists():
@@ -1621,14 +1627,14 @@ class BaseHook(object):
                 self.log('Updated review request (%d) for '
                          'changeset(s): %s', request.id(), request.nodes())
             else:
-                if request.approved:
+                if request.approved():
                     self.log('Found approved review request (%d) for '
                              'changeset(s): %s', request.id(),
                              request.nodes())
                 else:
                     self.log('Found unchanged review request (%d) for '
                              'changeset(s): %s | %s', request.id(),
-                             request.nodes(), request.failure)
+                             request.nodes(), request.failure())
         else:
             request.sync()
             self.log('Created review request (%d) for '
