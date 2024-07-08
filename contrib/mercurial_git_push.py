@@ -1041,7 +1041,7 @@ class GitReviewRequest(BaseReviewRequest):
 
     def _should_skip(self, rev):
         if rev.isDangling():
-            return 'Dangling changeset'
+            return 'Dangling changeset on branch "%s"' % rev.branch()
         return super(GitReviewRequest, self)._should_skip(rev)
 
     def _info_template(self):
