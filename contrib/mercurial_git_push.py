@@ -1239,13 +1239,6 @@ class GitRevision(BaseRevision):
     """Class to represent information of changeset."""
 
     @staticmethod
-    def fetch_merge_incoming(rev, base):
-        revs = GitRevision.fetch(rev, base, skipKnown=False)
-        revs.pop()  # remove merge commit itself
-        revs.reverse()  # use correct order
-        return revs
-
-    @staticmethod
     def fetch_known_branches(rev):
         output = execute(['git', 'branch', '--contains', rev])
         branches = []
@@ -1353,8 +1346,12 @@ class GitRevision(BaseRevision):
         all changesets that will be merged.
         """
         if self.isMerge() and self._merges is None:
-            self._merges = GitRevision.fetch_merge_incoming(self.node(),
-                                                            self.parent())
+            self._merges = GitRevision.fetch(self._hash,
+                                             self._parent[0],
+                                             skipKnown=False)
+            self._merges.pop()  # remove merge commit itself
+            self._merges.reverse()  # use correct order
+
         return self._merges
 
 
