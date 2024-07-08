@@ -443,6 +443,9 @@ class BaseReviewRequest(object):
         else:
             return self._changesets[0].summary()
 
+    def _should_skip(self, rev):
+        return None
+
     def skippable(self):
         if self._skippable is None:
             self._skippable = False
@@ -456,6 +459,12 @@ class BaseReviewRequest(object):
                 elif re.search(regex, changeset.desc()):
                     self._skippable = True
                     self._failure = 'Description contains: "%s"' % regex
+                    break
+
+                skip = self._should_skip(changeset)
+                if skip is not None:
+                    self._skippable = True
+                    self._failure = skip
                     break
 
         return self._skippable
@@ -1020,6 +1029,20 @@ class GitReviewRequest(BaseReviewRequest):
                                                web,
                                                topic)
 
+    def approved(self):
+        approved = super(GitReviewRequest, self).approved()
+        if approved:
+            for rev in self._changesets:
+                if rev.hasDangling():
+                    self._failure = 'The merge has dangling changesets'
+                    return False
+        return approved
+
+    def _should_skip(self, rev):
+        if rev.isDangling():
+            return 'Dangling changeset'
+        return super(GitReviewRequest, self)._should_skip(rev)
+
     def _info_template(self):
         if self.request.created_with_history:
             return super(GitReviewRequest, self)._info_template()
@@ -1278,6 +1301,8 @@ class GitRevision(BaseRevision):
         self._refs = refs.replace('refs/heads/', '') if refs else None
         self._base = base
         self._merges = None
+        self._has_dangling = None
+        self._is_dangling = False
 
         pretty = '--pretty=format:%aI#%P#%GT#%G?#%GP#%an <%ae>#%B'
         data = execute(['git', 'log', '-1', self._hash, pretty])
@@ -1335,6 +1360,20 @@ class GitRevision(BaseRevision):
     def file(self, filename):
         entry = '%s:%s' % (self.node(), filename)
         return execute(['git', 'show', entry])
+
+    def dangle(self):
+        self._is_dangling = True
+
+    def isDangling(self):
+        return self._is_dangling
+
+    def hasDangling(self):
+        if self._has_dangling is None:
+            self._has_dangling = (
+                self.isMerge() and
+                len(GitRevision.fetch_known_branches(self.parent(1))) == 0
+            )
+        return self._has_dangling
 
     def isMerge(self):
         return len(self._parent) > 1
@@ -1485,7 +1524,8 @@ class BaseHook(object):
             True if summary or commit_id is duplicated, otherwise False.
         """
         return any(
-            r.summary() == req.summary() or r.commit_id == req.commit_id
+            not r.skippable() and
+            (r.summary() == req.summary() or r.commit_id == req.commit_id)
             for r in revreqs
         )
 
@@ -1750,14 +1790,22 @@ class GitHook(BaseHook):
             return 1
 
         if len(changesets) > 1:
+            mergeIncoming = {}
             for rev in changesets:
-                if (
-                    rev.isMerge() and
-                    len(GitRevision.fetch_known_branches(rev.parent(1))) == 0
-                ):
-                    self.log('Merge cannot be pushed with other commits: %s',
-                             rev.node())
-                    return 1
+                if rev.hasDangling():
+                    nodes = [x.node() for x in rev.merges()]
+                    if rev.branch() in mergeIncoming:
+                        mergeIncoming[rev.branch()].extend(nodes)
+                    else:
+                        mergeIncoming[rev.branch()] = nodes
+
+            if len(mergeIncoming) > 0:
+                def isDangling(rev):
+                    return (
+                        rev.branch() in mergeIncoming and
+                        rev.node() in mergeIncoming[rev.branch()]
+                    )
+                [x.dangle() for x in changesets if isDangling(x)]
 
         return super(GitHook, self)._handle_changeset_list_process(changesets)
 
