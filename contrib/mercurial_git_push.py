@@ -1034,7 +1034,8 @@ class GitReviewRequest(BaseReviewRequest):
         if approved:
             for rev in self._changesets:
                 if rev.hasDangling():
-                    self._failure = 'The merge has dangling changesets'
+                    self._failure = ('The merge has dangling changesets: %s'
+                                     % ','.join(rev.merges(nodes=True)))
                     return False
         return approved
 
@@ -1378,7 +1379,7 @@ class GitRevision(BaseRevision):
     def isMerge(self):
         return len(self._parent) > 1
 
-    def merges(self):
+    def merges(self, nodes=None):
         """Get all changeset of this merge change.
 
         If this is a merge changeset we can fetch
@@ -1391,7 +1392,9 @@ class GitRevision(BaseRevision):
             self._merges.pop()  # remove merge commit itself
             self._merges.reverse()  # use correct order
 
-        return self._merges
+        if nodes is None:
+            return self._merges
+        return [x.node(nodes) for x in self._merges]
 
 
 class BaseHook(object):
@@ -1793,7 +1796,7 @@ class GitHook(BaseHook):
             mergeIncoming = {}
             for rev in changesets:
                 if rev.hasDangling():
-                    nodes = [x.node() for x in rev.merges()]
+                    nodes = rev.merges(nodes=False)
                     if rev.branch() in mergeIncoming:
                         mergeIncoming[rev.branch()].extend(nodes)
                     else:
