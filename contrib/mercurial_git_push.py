@@ -1346,8 +1346,8 @@ class GitRevision(BaseRevision):
         all changesets that will be merged.
         """
         if self.isMerge() and self._merges is None:
-            self._merges = GitRevision.fetch(self._hash,
-                                             self._parent[0],
+            self._merges = GitRevision.fetch(self.node(),
+                                             self.parent(),
                                              skipKnown=False)
             self._merges.pop()  # remove merge commit itself
             self._merges.reverse()  # use correct order
