@@ -115,10 +115,10 @@ import getpass
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import six
-from functools import partial
 
 from rbtools import __version__ as rbversion
 from rbtools.clients.git import GitClient
@@ -148,6 +148,7 @@ new file mode 100644
 +------------------------------------------------------------
 '''
 
+log = logging.getLogger('reviewboardhook')
 HG = 'hg'
 OPTIONS = None
 KEY = None
@@ -1398,8 +1399,7 @@ class GitRevision(BaseRevision):
 
 
 class BaseHook(object):
-    def __init__(self, log, name, review_request_class, review_differ_class):
-        self.log = log
+    def __init__(self, name, review_request_class, review_differ_class):
         self.submitter = None
         self.repo_name = None
         self.repo_id = None
@@ -1415,7 +1415,7 @@ class BaseHook(object):
             kallithea = json.loads(e['KALLITHEA_EXTRAS'])
             self.repo_name = kallithea['repository']
             if 'default' in kallithea['username']:
-                self.log('Anonymous access is not supported')
+                log.error('Anonymous access is not supported')
             else:
                 self.submitter = kallithea['username']
         elif 'HEPTAPOD_USERINFO_USERNAME' in e and \
@@ -1480,9 +1480,9 @@ class BaseHook(object):
         try:
             api_client, root = cmd.get_api(server_url)
         except Exception:
-            self.log('Cannot fetch data from RB (%s). '
-                     'Is ALLOWED_HOST correct?',
-                     server_url)
+            log.error('Cannot fetch data from RB (%s). '
+                      'Is ALLOWED_HOST correct?',
+                      server_url)
             raise
 
         session = get_authenticated_session(api_client, root,
@@ -1503,8 +1503,8 @@ class BaseHook(object):
             else:
                 self.root = self._init_rbtools(cmd)
         except Exception:
-            self.log('Cannot init rbtools...')
-            self.log('Trying .reviewboardrc (RBTOOLS_CONFIG_PATH) file "'
+            log.error('Cannot init rbtools...')
+            log.info('Trying .reviewboardrc (RBTOOLS_CONFIG_PATH) file "'
                      'in "%s" and "%s"',
                      os.environ.get('HOME'),
                      os.environ.get('RBTOOLS_CONFIG_PATH'))
@@ -1534,7 +1534,7 @@ class BaseHook(object):
 
     def _handle_changeset_list(self, pushinfo):
         changesets = self._list_of_incoming(pushinfo)
-        self.log('Processing %d changeset(s)...', len(changesets))
+        log.info('Processing %d changeset(s)...', len(changesets))
         return self._handle_changeset_list_process(changesets)
 
     def _extract_changeset_topics(self, changesets):
@@ -1576,7 +1576,7 @@ class BaseHook(object):
             self._handle_changeset_list_process_request([changeset], revreqs)
 
         for topic in topicchanges:
-            self.log("Use topic '%s' with %d changeset(s)",
+            log.info("Use topic '%s' with %d changeset(s)",
                      topic,
                      len(topicchanges[topic]))
             self._handle_changeset_list_process_request(topicchanges[topic],
@@ -1598,7 +1598,7 @@ class BaseHook(object):
                                             topic)
 
         if self._check_duplicate(request, revreqs):
-            self.log('Ignoring changeset(s) (%s) as it has a '
+            log.info('Ignoring changeset(s) (%s) as it has a '
                      'duplicated commit_id or summary: %s | %s',
                      request.nodes(),
                      request.commit_id,
@@ -1628,10 +1628,10 @@ class BaseHook(object):
 
         if idx is None:
             if self._is_multi_head_forbidden() and self._is_multi_head():
-                self.log('Multiple heads per branch are forbidden!')
+                log.error('Multiple heads per branch are forbidden!')
             elif 'DEBUGFAIL' not in OPTIONS:
                 for r in revreqs:
-                    self.log('Closing review request: %s', r.id())
+                    log.info('Closing review request: %s', r.id())
                     r.close()
                 return 0
         elif idx > 0:
@@ -1647,7 +1647,7 @@ class BaseHook(object):
         return headAllowed is None or headAllowed.lower() != "on"
 
     def _log_push_info(self, changeset):
-        self.log('If you want to push the already approved '
+        log.info('If you want to push the already approved '
                  'changes, you can (probably) execute this:')
 
     def _handle_review_request(self, request):
@@ -1658,27 +1658,27 @@ class BaseHook(object):
                 A review request object.
         """
         if request.skippable():
-            self.log('Skip changeset(s): %s | %s',
+            log.info('Skip changeset(s): %s | %s',
                      request.nodes(), request.failure())
             return
 
         if request.exists():
             if request.modified():
                 request.sync()
-                self.log('Updated review request (%d) for '
+                log.info('Updated review request (%d) for '
                          'changeset(s): %s', request.id(), request.nodes())
             else:
                 if request.approved():
-                    self.log('Found approved review request (%d) for '
+                    log.info('Found approved review request (%d) for '
                              'changeset(s): %s', request.id(),
                              request.nodes())
                 else:
-                    self.log('Found unchanged review request (%d) for '
+                    log.info('Found unchanged review request (%d) for '
                              'changeset(s): %s | %s', request.id(),
                              request.nodes(), request.failure())
         else:
             request.sync()
-            self.log('Created review request (%d) for '
+            log.info('Created review request (%d) for '
                      'changeset(s): %s', request.id(), request.nodes())
 
     def push_to_reviewboard(self, pushinfo):
@@ -1688,7 +1688,7 @@ class BaseHook(object):
             int:
             Return code of execution. 0 on success, otherwise non-zero.
         """
-        self.log('Push as user "%s" to "%s"...',
+        log.info('Push as user "%s" to "%s"...',
                  self.submitter, self.repo_name)
 
         if pushinfo is None or len(pushinfo) == 0:
@@ -1705,9 +1705,8 @@ class BaseHook(object):
 class MercurialHook(BaseHook):
     """Class to represent a hook for Mercurial repositories."""
 
-    def __init__(self, log):
-        super(MercurialHook, self).__init__(log,
-                                            'Mercurial',
+    def __init__(self):
+        super(MercurialHook, self).__init__('Mercurial',
                                             MercurialReviewRequest,
                                             MercurialDiffer)
 
@@ -1747,15 +1746,14 @@ class MercurialHook(BaseHook):
 
     def _log_push_info(self, changeset):
         super(MercurialHook, self)._log_push_info(changeset)
-        self.log('hg push -r %s', changeset.node(True))
+        log.info('hg push -r %s', changeset.node(True))
 
 
 class GitHook(BaseHook):
     """Class to represent a hook for Git repositories."""
 
-    def __init__(self, log):
-        super(GitHook, self).__init__(log,
-                                      'Git',
+    def __init__(self):
+        super(GitHook, self).__init__('Git',
                                       GitReviewRequest,
                                       GitDiffer)
         if self.repo_name is None:
@@ -1772,12 +1770,12 @@ class GitHook(BaseHook):
             return True
 
         hookSignTrust = hookSignTrust.strip().split(',')
-        self.log('Check signature trust: %s', hookSignTrust)
+        log.info('Check signature trust: %s', hookSignTrust)
         for changeset in changesets:
             if (changeset.signTrust() not in hookSignTrust
                or changeset.signVerify() != 'G'):
 
-                self.log('Signature of changeset (%s) invalid. '
+                log.info('Signature of changeset (%s) invalid. '
                          'Trust: %s | Verify: %s | Sign-ID: %s',
                          changeset.node(),
                          changeset.signTrust(),
@@ -1821,11 +1819,11 @@ class GitHook(BaseHook):
 
     def _log_push_info(self, changeset):
         super(GitHook, self)._log_push_info(changeset)
-        self.log('git push origin %s:%s',
+        log.info('git push origin %s:%s',
                  changeset.node(True), changeset.branch())
 
 
-def process_mercurial_hook(stdin, log):
+def process_mercurial_hook(stdin):
     CHG = 'chg'
     if is_exe_in_path(CHG):
         global HG
@@ -1833,10 +1831,10 @@ def process_mercurial_hook(stdin, log):
         HG = CHG
 
     node = os.environ.get('HG_NODE')
-    return MercurialHook(log).push_to_reviewboard(node)
+    return MercurialHook().push_to_reviewboard(node)
 
 
-def process_git_hook(stdin, log):
+def process_git_hook(stdin):
     if stdin is None:
         lines = sys.stdin.readlines()
     elif isinstance(stdin, list):
@@ -1844,7 +1842,7 @@ def process_git_hook(stdin, log):
     else:
         lines = stdin.splitlines()
 
-    return GitHook(log).push_to_reviewboard(lines)
+    return GitHook().push_to_reviewboard(lines)
 
 
 def get_logging_level(logging):
@@ -1896,29 +1894,25 @@ def set_globals():
 
 
 def hook(stdin=None):
-    import logging
-
     set_globals()
 
     logging.basicConfig(format='%(levelname)s: %(message)s',
                         level=get_logging_level(logging))
-    logger = logging.getLogger('reviewboardhook')
 
     try:
-        log = partial(logger.info)
         if 'HG_NODE' in os.environ:
-            logger.debug('Mercurial detected...')
-            return process_mercurial_hook(stdin, log)
+            log.debug('Mercurial detected...')
+            return process_mercurial_hook(stdin)
         else:
-            logger.debug('Git detected...')
-            return process_git_hook(stdin, log)
+            log.debug('Git detected...')
+            return process_git_hook(stdin)
 
     except Exception as e:
-        if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.exception('Backtrace of error: %s' % e)
+        if log.getEffectiveLevel() == logging.DEBUG:
+            log.exception('Backtrace of error: %s' % e)
         else:
             for line in six.text_type(e).splitlines():
-                logger.error(line)
+                log.error(line)
 
     return -1
 
