@@ -1905,7 +1905,7 @@ def hook(stdin=None):
                         level=get_logging_level(logging))
 
     try:
-        if 'HG_NODE' in os.environ:
+        if 'HG_TXNNAME' in os.environ:
             log.debug('Mercurial detected...')
             return process_mercurial_hook(stdin)
         else:
