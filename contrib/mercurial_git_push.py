@@ -75,6 +75,9 @@ Also it is recommended to use a virtualenv for this to have a clean
 environment: https://docs.python.org/3/tutorial/venv.html
 
 
+This hook was tested with "hg serve", hgkeeper, Heptapod, Kallithea,
+SCM-Manager, Gitea and Gogs as a remote hosting platform
+and a local repository.
 
 
 
@@ -92,9 +95,6 @@ can use the provided reviewboard.sh as a wrapper to the hook.
 [hooks]
 pretxnchangegroup.rb = /path/to/hook/mercurial_git_push.py
 #pretxnchangegroup.rb = /path/to/hook/reviewboard.sh
-
-This hook was tested with "hg serve", hgkeeper, Heptapod, Kallithea,
-SCM-Manager and Gogs as a remote hosting platform and a local repository.
 
 
 
@@ -1425,6 +1425,11 @@ class BaseHook(object):
             self.repo_name = \
                 e['HEPTAPOD_PROJECT_NAMESPACE_FULL_PATH'] + '/' + \
                 e['HEPTAPOD_PROJECT_PATH']
+        elif 'GITEA_REPO_NAME' in e and 'GITEA_PUSHER_NAME' in e and\
+             'GITEA_REPO_USER_NAME' in e:
+            self.submitter = e['GITEA_PUSHER_NAME']
+            self.repo_name = e['GITEA_REPO_USER_NAME'] + '/' + \
+                e['GITEA_REPO_NAME']
         elif 'GOGS_REPO_NAME' in e and 'GOGS_AUTH_USER_NAME' in e and\
              'GOGS_REPO_OWNER_NAME' in e:
             self.submitter = e['GOGS_AUTH_USER_NAME']
