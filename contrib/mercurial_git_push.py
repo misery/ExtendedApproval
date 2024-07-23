@@ -1413,6 +1413,7 @@ class BaseHook(object):
         self.review_request_class = review_request_class
         self.review_differ_class = review_differ_class
         self._differ = None
+        self._process = True
 
         e = os.environ
         if 'KALLITHEA_EXTRAS' in e:
@@ -1442,6 +1443,7 @@ class BaseHook(object):
         elif 'GL_USERNAME' in e and 'GL_PROJECT_PATH' in e:
             self.submitter = e['GL_USERNAME']
             self.repo_name = e['GL_PROJECT_PATH']
+            self._process = e.get('GL_PROTOCOL') != 'web'
         elif 'HGK_USERNAME' in e and 'HGK_REPOSITORY' in e:
             self.submitter = e['HGK_USERNAME']
             self.repo_name = e['HGK_REPOSITORY']
@@ -1705,6 +1707,10 @@ class BaseHook(object):
             int:
             Return code of execution. 0 on success, otherwise non-zero.
         """
+        if not self._process:
+            log.info('Processing skipped...')
+            return 1 if 'DEBUGFAIL' in OPTIONS else 0
+
         log.info('Push as user "%s" to "%s"...',
                  self.submitter, self.repo_name)
 
