@@ -1884,7 +1884,7 @@ def environment_check():
             log.info('HOOK_ENV_ALLOWED is not enabled')
 
 
-def get_logging_level(logging):
+def get_logging_level():
     if (
         'DEBUG' in OPTIONS and
             OPTIONS['DEBUG'].lower() in ('true', 'on', '1', '')
@@ -1936,7 +1936,7 @@ def hook(stdin=None):
     try:
         set_globals()
         logging.basicConfig(format='%(levelname)s: %(message)s',
-                            level=get_logging_level(logging))
+                            level=get_logging_level())
         environment_check()
 
         if 'HG_TXNNAME' in os.environ:
