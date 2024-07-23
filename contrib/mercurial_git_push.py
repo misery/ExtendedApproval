@@ -152,20 +152,20 @@ log = logging.getLogger('reviewboardhook')
 HG = 'hg'
 OPTIONS = None
 KEY = None
+KEY_ENV = 'HOOK_HMAC_KEY'
 
 
 def getHMac():
     global KEY
 
     if KEY is None:
-        envKey = 'HOOK_HMAC_KEY'
-        KEY = os.environ.get(envKey)
+        KEY = os.environ.get(KEY_ENV)
         if KEY is None:
             try:
                 with open('/etc/machine-id', 'r') as content_file:
                     KEY = content_file.read().strip()
             except Exception:
-                raise HookError('You need to define %s' % envKey)
+                raise HookError('You need to define %s' % KEY_ENV)
 
         if not six.PY2:
             KEY = bytes(KEY, 'utf-8')
@@ -1854,6 +1854,18 @@ def process_git_hook(stdin):
     return GitHook().push_to_reviewboard(lines)
 
 
+def environment_check():
+    if 'DEBUGENV' in OPTIONS:
+        e = os.environ
+        if os.environ.get('HOOK_ENV_ALLOWED') is not None:
+            if KEY_ENV in e:
+                e = dict(e)
+                del e[KEY_ENV]
+            log.info(e)
+        else:
+            log.info('HOOK_ENV_ALLOWED is not enabled')
+
+
 def get_logging_level(logging):
     if (
         'DEBUG' in OPTIONS and
@@ -1909,6 +1921,8 @@ def hook(stdin=None):
                         level=get_logging_level(logging))
 
     try:
+        environment_check()
+
         if 'HG_TXNNAME' in os.environ:
             log.debug('Mercurial detected...')
             return process_mercurial_hook(stdin)
