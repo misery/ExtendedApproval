@@ -580,6 +580,9 @@ class BaseReviewRequest(object):
 
     def sync(self):
         """Synchronize review request on review board."""
+        if 'NOSYNC' in OPTIONS:
+            return False
+
         if self.request is None:
             self.request = self._create()
 
@@ -587,6 +590,7 @@ class BaseReviewRequest(object):
             self._generate_diff_info()
 
         self._update()
+        return True
 
     def _check_changesets(self):
         if len(self._changesets) == 1:
@@ -1669,22 +1673,30 @@ class BaseHook(object):
 
         if request.exists():
             if request.modified():
-                request.sync()
-                log.info('Updated review request (%d) for '
-                         'changeset(s): %s', request.id(), request.nodes())
+                if request.sync():
+                    log.info('Updated review request (%d) for '
+                             'changeset(s): %s',
+                             request.id(), request.nodes())
+                else:
+                    log.info('Skipped update of review request (%d) for '
+                             'changeset(s): %s',
+                             request.id(), request.nodes())
             else:
                 if request.approved():
                     log.info('Found approved review request (%d) for '
-                             'changeset(s): %s', request.id(),
-                             request.nodes())
+                             'changeset(s): %s',
+                             request.id(), request.nodes())
                 else:
                     log.info('Found unchanged review request (%d) for '
                              'changeset(s): %s | %s', request.id(),
                              request.nodes(), request.failure())
         else:
-            request.sync()
-            log.info('Created review request (%d) for '
-                     'changeset(s): %s', request.id(), request.nodes())
+            if request.sync():
+                log.info('Created review request (%d) for '
+                         'changeset(s): %s', request.id(), request.nodes())
+            else:
+                log.info('Skipped creation of review request for '
+                         'changeset(s): %s', request.nodes())
 
     def push_to_reviewboard(self, pushinfo):
         """Run the hook.
