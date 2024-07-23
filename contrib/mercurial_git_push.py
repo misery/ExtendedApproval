@@ -1915,12 +1915,10 @@ def set_globals():
 
 
 def hook(stdin=None):
-    set_globals()
-
-    logging.basicConfig(format='%(levelname)s: %(message)s',
-                        level=get_logging_level(logging))
-
     try:
+        set_globals()
+        logging.basicConfig(format='%(levelname)s: %(message)s',
+                            level=get_logging_level(logging))
         environment_check()
 
         if 'HG_TXNNAME' in os.environ:
