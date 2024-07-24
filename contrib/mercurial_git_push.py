@@ -93,8 +93,8 @@ If you use a virtualenv or want some special changes for the hook you
 can use the provided reviewboard.sh as a wrapper to the hook.
 
 [hooks]
-pretxnchangegroup.rb = /path/to/hook/mercurial_git_push.py
-#pretxnchangegroup.rb = /path/to/hook/reviewboard.sh
+pretxnclose.rb = /path/to/hook/mercurial_git_push.py
+#pretxnclose.rb = /path/to/hook/reviewboard.sh
 
 
 
@@ -943,6 +943,15 @@ class MercurialReviewRequest(BaseReviewRequest):
                                                      web,
                                                      topic)
 
+    def approved(self):
+        approved = super(MercurialReviewRequest, self).approved()
+        if approved:
+            for rev in self._changesets:
+                if rev.phase() == 'draft':
+                    self._failure = 'Phase of changeset(s) is "draft"'
+                    return False
+        return approved
+
     def _commit_id_data(self):
         content = super(MercurialReviewRequest, self)._commit_id_data()
 
@@ -1179,6 +1188,9 @@ class MercurialRevision(BaseRevision):
 
     def author(self):
         return self.json['user']
+
+    def phase(self):
+        return self.json['phase']
 
     def date(self):
         if self._date is None:
