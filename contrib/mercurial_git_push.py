@@ -133,6 +133,11 @@ try:
 except ImportError:
     from rbtools.commands import Command as BaseCommand
 
+if rbversion >= '5':
+    from rbtools.utils.mimetypes import (guess_mimetype,
+                                         match_mimetype,
+                                         parse_mimetype)
+
 MAX_MERGE_ENTRIES = 30
 
 FAKE_DIFF_TEMPL = b'''diff --git /a /b
@@ -151,6 +156,7 @@ new file mode 100644
 log = logging.getLogger('reviewboardhook')
 HG = 'hg'
 OPTIONS = None
+SERVER = None
 KEY = None
 KEY_ENV = 'HOOK_HMAC_KEY'
 
@@ -171,6 +177,12 @@ def getHMac():
             KEY = bytes(KEY, 'utf-8')
 
     return hmac.new(KEY, digestmod=hashlib.sha256)
+
+
+def hasCapability(*capability):
+    if SERVER is None:
+        return False
+    return SERVER.has_capability(*capability)
 
 
 def get_ticket_refs(text, prefixes=None):
@@ -649,8 +661,86 @@ class BaseReviewRequest(object):
         return ('diff_hash' in e and
                 self._get_hash(self.diffset_id) == e['diff_hash'])
 
-    def _update_attachments(self):
+    def _update_attachments(self, uploaded):
         return None
+
+    def _upload_diff_attachments(self, files):
+        if len(files) < 1:
+            return
+
+        fields = 'repository_file_path,repository_revision'
+        api = self.root.get_diff_file_attachments(repository_id=self.repo,
+                                                  only_fields=fields,
+                                                  only_links='create,self')
+        maxSize = SERVER.get_capability('diffs', 'max_binary_size')
+
+        supportedMimetypes = [
+            parse_mimetype(mimetype) for mimetype in
+            SERVER.get_capability('review_uis', 'supported_mimetypes')
+        ]
+
+        def isKnown(filename, rev):
+            for a in api:
+                if (
+                    a.repository_file_path == filename and
+                    a.repository_revision == rev
+                ):
+                    return True
+            return False
+
+        def upload(id, filename, revision, source_file=False):
+            valid_mimetypes = []
+            invalid_mimetypes = []
+
+            def supported(content):
+                mime = guess_mimetype(content)
+                if not mime or mime in invalid_mimetypes:
+                    return False
+
+                if mime in valid_mimetypes:
+                    return True
+
+                valid = any(match_mimetype(pattern, parse_mimetype(mime))
+                            for pattern in supportedMimetypes)
+                if valid:
+                    valid_mimetypes.append(mime)
+                else:
+                    invalid_mimetypes.append(mime)
+
+                return valid
+
+            size = self._differ.tool.get_file_size(filename=filename,
+                                                   revision=revision)
+
+            if size > maxSize:
+                log.info('File too large to upload: %s (%s)',
+                         filename, revision)
+                return
+
+            content = self._differ.tool.get_file_content(filename=filename,
+                                                         revision=revision)
+
+            if supported(content):
+                log.info('Upload binary "%s" in revision %s',
+                         filename, revision)
+                api.upload_attachment(
+                    filename=os.path.basename(filename),
+                    content=content,
+                    filediff_id=id,
+                    source_file=source_file)
+
+        for f in files:
+            if f.status == 'deleted':
+                continue
+
+            upload(f.id, f.dest_file, f.dest_detail)
+
+            if (
+                'parent_source_revision' in f.extra_data and
+                f.source_revision != 'PRE-CREATION' and
+                not isKnown(f.source_file, f.source_revision)
+            ):
+                upload(f.id, f.source_file, f.source_revision, True)
 
     def _update_with_history(self, diffs):
         d = self.diff_info
@@ -700,9 +790,10 @@ class BaseReviewRequest(object):
         draft = self.request.get_or_create_draft(only_fields='',
                                                  only_links='update,'
                                                             'draft_diffs')
-
+        binaries = []
         if not self._diff_up_to_date():
-            diffs = draft.get_draft_diffs(only_links='upload_diff',
+            diffs = draft.get_draft_diffs(only_links='upload_diff,'
+                                                     'draft_files',
                                           only_fields='')
 
             if self.request.created_with_history:
@@ -714,16 +805,29 @@ class BaseReviewRequest(object):
                                     % self.request.id)
 
                 d = self.diff_info
-                diffs.upload_diff(diff=d.getDiff(),
-                                  parent_diff=d.getParentDiff(),
-                                  base_commit_id=d.getBaseCommitId())
+                upload = diffs.upload_diff(diff=d.getDiff(),
+                                           parent_diff=d.getParentDiff(),
+                                           base_commit_id=d.getBaseCommitId())
+                if rbversion >= '1.0.2':
+                    binaries = list(upload.get_draft_files(binary=True)
+                                    .all_items)
 
             # re-fetch diffset to get id
-            diff = draft.get_draft_diffs(only_links='', only_fields='id')
-            extra_data = {'extra_data.diff_hash': self._get_hash(diff[0].id)}
-            if rbversion >= '1.0.3' and not self.request.created_with_history:
-                extra_data['extra_data.file_hashes'] = \
-                                                     self._update_attachments()
+            diffs = draft.get_draft_diffs(only_links='draft_commits',
+                                          only_fields='id')
+            extra_data = {'extra_data.diff_hash': self._get_hash(diffs[0].id)}
+
+            if (
+                rbversion >= '5' and hasCapability('diffs',
+                                                   'file_attachments')
+            ):
+                self._upload_diff_attachments(binaries)
+            if (
+                  rbversion >= '1.0.3' and
+                  not self.request.created_with_history
+            ):
+                h = self._update_attachments(binaries)
+                extra_data['extra_data.file_hashes'] = h
 
         refs = []
         for changeset in self._changesets:
@@ -965,7 +1069,7 @@ class MercurialReviewRequest(BaseReviewRequest):
 
         return content
 
-    def _update_attachments(self):
+    def _update_attachments(self, uploaded):
         stored_hashes = {}
         if 'file_hashes' in self.request.extra_data:
             stored_hashes = json.loads(self.request.extra_data['file_hashes'])
@@ -993,8 +1097,12 @@ class MercurialReviewRequest(BaseReviewRequest):
         mods = self._changesets[0].files('{file_mods|json}')
         adds = self._changesets[0].files('{file_adds|json}')
         foundAttachments = []
+        uploaded = [x.dest_file for x in uploaded]
         for entry in set(adds + mods):
-            if self.regexUpload.match(entry):
+            if (
+                self.regexUpload.match(entry)
+                    and entry not in uploaded
+            ):
                 foundAttachments.append(entry)
 
         if len(foundAttachments) > 0:
@@ -1420,6 +1528,7 @@ class BaseHook(object):
         self.repo_name = None
         self.repo_id = None
         self.root = None
+        self.capabilities = None
         self.web = None
         self.name = name
         self.review_request_class = review_request_class
@@ -1523,6 +1632,8 @@ class BaseHook(object):
             if rbversion >= '3':
                 cmd.initialize()
                 self.root = cmd.api_root
+                global SERVER
+                SERVER = cmd.get_capabilities(self.root)
             else:
                 self.root = self._init_rbtools(cmd)
         except Exception:
