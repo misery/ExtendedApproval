@@ -1868,7 +1868,7 @@ def process_mercurial_hook(stdin):
     node = os.environ.get('HG_NODE')
     if node is None:
         log.info("Skip Review Board: No HG_NODE found")
-        return 0
+        return 1 if 'DEBUGFAIL' in OPTIONS else 0
 
     return MercurialHook().push_to_reviewboard(node)
 
