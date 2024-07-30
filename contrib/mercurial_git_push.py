@@ -817,16 +817,16 @@ class BaseReviewRequest(object):
                                           only_fields='id')
             extra_data = {'extra_data.diff_hash': self._get_hash(diffs[0].id)}
 
-            if (
-                rbversion >= '5' and hasCapability('diffs',
-                                                   'file_attachments')
-            ):
+            binarySupportRB7 = (rbversion >= '5' and
+                                hasCapability('diffs', 'file_attachments'))
+            if binarySupportRB7:
                 self._upload_diff_attachments(binaries)
             if (
                   rbversion >= '1.0.3' and
                   not self.request.created_with_history
             ):
-                h = self._update_attachments(binaries)
+                uploaded = binaries if binarySupportRB7 else []
+                h = self._update_attachments(uploaded)
                 extra_data['extra_data.file_hashes'] = h
 
         refs = []
