@@ -680,7 +680,7 @@ class BaseReviewRequest(object):
         ]
 
         def isKnown(filename, rev):
-            for a in api:
+            for a in api.all_items:
                 if (
                     a.repository_file_path == filename and
                     a.repository_revision == rev
