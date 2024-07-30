@@ -121,6 +121,7 @@ import re
 import six
 
 from rbtools import __version__ as rbversion
+from rbtools.api.resource import FileDiffResource
 from rbtools.clients.git import GitClient
 from rbtools.clients.mercurial import MercurialClient
 from rbtools.hooks.common import HookError
@@ -761,27 +762,30 @@ class BaseReviewRequest(object):
         diff = diffs.create_empty(base_commit_id=d.getBaseCommitId(),
                                   only_fields='',
                                   only_links='self,draft_commits')
-        commits = diff.get_draft_commits()
+        c = diff.get_draft_commits()
+        binaries: list[FileDiffResource] = []
         for changeset in self._changesets:
             change_d = self.diff_info_commits[changeset.node()]
-            commits.upload_commit(validation_info=v,
-                                  commit_id=changeset.node(),
-                                  commit_message=changeset.desc(),
-                                  parent_id=changeset.parent(),
-                                  parent_diff=d.getParentDiff(),
-                                  diff=change_d.getDiff(),
-                                  author_name=changeset.authorName(),
-                                  author_email=changeset.mail(),
-                                  author_date=changeset.date(),
-                                  committer_name=changeset.authorName(),
-                                  committer_email=changeset.mail(),
-                                  committer_date=changeset.date()
-                                  )
+            upload = c.upload_commit(validation_info=v,
+                                     commit_id=changeset.node(),
+                                     commit_message=changeset.desc(),
+                                     parent_id=changeset.parent(),
+                                     parent_diff=d.getParentDiff(),
+                                     diff=change_d.getDiff(),
+                                     author_name=changeset.authorName(),
+                                     author_email=changeset.mail(),
+                                     author_date=changeset.date(),
+                                     committer_name=changeset.authorName(),
+                                     committer_email=changeset.mail(),
+                                     committer_date=changeset.date()
+                                     )
+            binaries += upload.get_draft_files(binary=True).all_items
 
         diff.finalize_commit_series(cumulative_diff=d.getDiff(),
                                     validation_info=v,
                                     parent_diff=d.getParentDiff()
                                     )
+        return binaries
 
     def _update(self):
         """Update review request draft based on changeset."""
@@ -797,7 +801,7 @@ class BaseReviewRequest(object):
                                           only_fields='')
 
             if self.request.created_with_history:
-                self._update_with_history(diffs)
+                binaries = self._update_with_history(diffs)
             else:
                 if len(self._changesets) > 1:
                     raise HookError('Cannot use ReviewRequest '
