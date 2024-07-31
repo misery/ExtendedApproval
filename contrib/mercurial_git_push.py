@@ -1586,7 +1586,7 @@ class BaseHook(object):
 
     def _set_repo_id(self):
         """Set ID of repository."""
-        fields = 'path,mirror_path,id'
+        fields = 'path,mirror_path,id,extra_data'
 
         repos = self.root.get_repositories(name=self.repo_name,
                                            tool=self.name,
@@ -1966,6 +1966,19 @@ class GitHook(BaseHook):
             (base, node, ref) = line.split()
             revs.extend(GitRevision.fetch(node, base, ref))
         return revs
+
+    def _set_repo_id(self):
+        r = super(GitHook, self)._set_repo_id()
+        d = r.extra_data
+        if (
+            'hosting_url' in d and
+            'gitlab_group_name' in d and
+            'gitlab_group_repo_name' in d
+        ):
+            self.web = (d['hosting_url'] + '/' +
+                        d['gitlab_group_name'] + '/' +
+                        d['gitlab_group_repo_name'] +
+                        '/-/commit/{0}')
 
     def _log_push_info(self, changeset):
         super(GitHook, self)._log_push_info(changeset)
