@@ -1532,7 +1532,6 @@ class BaseHook(object):
         self.repo_name = None
         self.repo_id = None
         self.root = None
-        self.capabilities = None
         self.web = None
         self.name = name
         self.review_request_class = review_request_class
