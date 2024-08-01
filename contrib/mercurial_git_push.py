@@ -1428,7 +1428,7 @@ class GitRevision(BaseRevision):
     def __init__(self, hashnode, refs, base):
         super(GitRevision, self).__init__()
         self._hash = hashnode
-        self._refs = refs.replace('refs/heads/', '') if refs else None
+        self._refs = self._fetchRefs(refs)
         self._base = base
         self._merges = None
         self._has_dangling = None
@@ -1444,6 +1444,12 @@ class GitRevision(BaseRevision):
         self._sign_id = data[4]
         self._user = data[5]
         self._desc = data[6]
+
+    def _fetchRefs(self, refs):
+        if refs:
+            refs = re.sub(r'^refs/', '', refs)
+            refs = re.sub(r'^heads/', '', refs)
+        return refs
 
     def signTrust(self):
         return self._sign_trust
