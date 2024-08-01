@@ -1839,6 +1839,7 @@ class BaseHook(object):
             int:
             Return code of execution. 0 on success, otherwise non-zero.
         """
+        log.debug('Processing push information: %s', pushinfo)
         if not self._process:
             log.info('Processing skipped...')
             return 1 if 'DEBUGFAIL' in OPTIONS else 0
