@@ -1212,6 +1212,7 @@ class MercurialGitHookCmd(BaseCommand):
 class BaseRevision(object):
     def __init__(self):
         self._summary = None
+        self._topic = None
 
     def summary(self):
         if self._summary is None:
@@ -1226,6 +1227,17 @@ class BaseRevision(object):
 
     def authorName(self):
         return re.sub(r'<.*>', '', self.author()).strip()
+
+    def topic(self):
+        if self._topic is None:
+            matches = re.findall(r'^topic:([a-z|A-Z|0-9|/| ]+)',
+                                 self.desc(), re.MULTILINE)
+            if len(matches) > 0:
+                self._topic = matches[-1].strip()
+            else:
+                self._topic = ""
+
+        return None if self._topic == "" else self._topic
 
 
 class MercurialRevision(BaseRevision):
@@ -1269,7 +1281,7 @@ class MercurialRevision(BaseRevision):
         if 'extra' in self.json and 'topic' in self.json['extra']:
             return self.json['extra']['topic']
 
-        return None
+        return super(MercurialRevision, self).topic()
 
     def graft(self, short=True):
         if self._graft_source is None:
@@ -1459,9 +1471,6 @@ class GitRevision(BaseRevision):
 
     def signId(self):
         return self._sign_id
-
-    def topic(self):
-        return None
 
     def graft(self):
         return None
