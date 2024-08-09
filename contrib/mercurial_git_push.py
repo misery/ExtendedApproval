@@ -326,7 +326,7 @@ class BaseDiffer(object):
         if revisions['base'] != base and base is not None:
             revisions['parent_base'] = base
 
-        info = self.tool.diff(revisions=revisions)
+        info = self.tool.diff(revisions=revisions, binaries=True)
         return BaseDiffer.DiffContent(request_id,
                                       info['diff'],
                                       info['base_commit_id'],
