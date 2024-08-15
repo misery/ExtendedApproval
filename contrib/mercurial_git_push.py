@@ -1250,10 +1250,14 @@ class MercurialRevision(BaseRevision):
         return current['parents'][0]
 
     @staticmethod
-    def fetch(revset, fetch_base=False):
-        changes = execute([HG, 'log', '--debug',
-                           '--config', 'ui.message-output=stderr',
-                           '-r', revset, '--template', 'json'],
+    def fetch(revset, fetch_base=False, debug=True):
+        cmd = [HG, 'log', '--template', 'json',
+                   '--config', 'ui.message-output=stderr',
+                   '-r', revset]
+        if debug:
+            cmd.append('--debug')
+
+        changes = execute(cmd,
                           with_errors=False,
                           return_errors=False)
 
@@ -1879,7 +1883,8 @@ class MercurialHook(BaseHook):
             self.repo_name = os.environ['HG_PENDING']
 
     def _is_multi_head(self):
-        heads = MercurialRevision.fetch('head() and not closed()')
+        heads = MercurialRevision.fetch('head() and not closed()',
+                                        False, False)
         if heads is None:
             raise HookError('Cannot fetch branch heads')
 
