@@ -583,6 +583,14 @@ class BaseReviewRequest(object):
                 self._modified_description() or not
                 self._diff_up_to_date())
 
+    def prepare_close(self):
+        if self._topic is None and self.request.commit_id != self.nodes(False):
+            draft = self.request.get_or_create_draft(only_fields='',
+                                                     only_links='update')
+            draft.update(commit_id=self.nodes(False),
+                         publish_as_owner=True,
+                         public=False)
+
     def close(self):
         """Close the given review request with a message."""
         rev, text_type = self._markdown_rev(self.nodes())
@@ -969,6 +977,17 @@ class BaseReviewRequest(object):
         fields = ('summary,approved,approval_failure,id,commit_id,depends_on,'
                   'branch,description,extra_data,created_with_history')
         links = 'submitter,update,latest_diff,draft,file_attachments'
+
+        if self._topic is None:
+            reqs = self.root.get_review_requests(repository=self.repo,
+                                                 status='submitted',
+                                                 only_fields=fields,
+                                                 only_links=links,
+                                                 commit_id=self.nodes(False))
+            if len(reqs) > 0:
+                raise HookError('Changeset "%s" is already known '
+                                'in review request "%s"' %
+                                (self.nodes(), reqs[0].id))
 
         reqs = self.root.get_review_requests(repository=self.repo,
                                              status='pending',
@@ -1786,6 +1805,9 @@ class BaseHook(object):
             if self._is_multi_head_forbidden() and self._is_multi_head():
                 log.error('Multiple heads per branch are forbidden!')
             elif 'DEBUGFAIL' not in OPTIONS:
+                for r in revreqs:
+                    r.prepare_close()
+
                 for r in revreqs:
                     log.info('Closing review request: %s', r.id())
                     r.close()
