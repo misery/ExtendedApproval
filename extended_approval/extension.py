@@ -448,7 +448,7 @@ class ExtendedApproval(Extension):
     js_bundles = {
         'default': {
             'source_filenames': (
-                'js/extension.js',
+                'js/extension.ts',
             ),
         }
     }
@@ -460,7 +460,7 @@ class ExtendedApproval(Extension):
         CONFIG_ENABLE_REVOKE_SHIPITS: False,
         CONFIG_ENABLE_TARGET_SHIPITS: False,
         CONFIG_ENABLE_LEGACY_BUTTONS: False,
-        # CONFIG_ENABLE_WAIT_IT_BUTTON: False,
+        CONFIG_ENABLE_WAIT_IT_BUTTON: False,
         CONFIG_FORBIDDEN_USER_SHIPITS: '',
         CONFIG_FORBIDDEN_APPROVE_PREFIXES: 'WIP|work in progress',
         CONFIG_FORBIDDEN_APPROVE_SUFFIXES: '',
@@ -480,8 +480,8 @@ class ExtendedApproval(Extension):
             AdvancedPingItAction(self.settings),
             AdvancedLegacyEditReviewAction(self.settings),
             AdvancedLegacyAddGeneralCommentAction(self.settings),
+            AdvancedLegacyWaitItAction(self.settings),
             AdvancedLegacyShipItAction(self.settings),
-            # AdvancedLegacyWaitItAction(self.settings),
         ])
 
         self._init_dict(CONFIG_FORBIDDEN_APPROVE_PREFIXES)
