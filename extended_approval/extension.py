@@ -69,7 +69,8 @@ class ReqReviews(object):
                         self.latest.append(shipit)
 
     def _fetch_commits(self):
-        self.commits = self.diffset.commits.all()
+        if self.diffset:
+            self.commits = self.diffset.commits.all()
 
     def getDiffset(self):
         return self.diffset
@@ -78,22 +79,24 @@ class ReqReviews(object):
         if self.commits is None:
             self._fetch_commits()
 
-        prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
-        for key, value in prefixes.items():
-            for commit in self.commits:
-                if commit.commit_message.startswith(key):
-                    return (value, commit)
+        if self.commits is not None:
+            prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
+            for key, value in prefixes.items():
+                for commit in self.commits:
+                    if commit.commit_message.startswith(key):
+                        return (value, commit)
         return (None, None)
 
     def checkForbiddenSuffix(self):
         if self.commits is None:
             self._fetch_commits()
 
-        suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
-        for key, value in suffixes.items():
-            for commit in self.commits:
-                if commit.commit_message.splitlines()[0].endswith(key):
-                    return (value, commit)
+        if self.commits is not None:
+            suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
+            for key, value in suffixes.items():
+                for commit in self.commits:
+                    if commit.commit_message.splitlines()[0].endswith(key):
+                        return (value, commit)
         return (None, None)
 
     def getRevoked(self):
