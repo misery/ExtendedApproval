@@ -702,7 +702,7 @@ class BaseReviewRequest(object):
             invalid_mimetypes = []
 
             def supported(content):
-                mime = guess_mimetype(content)
+                mime = guess_mimetype(data=content)
                 if not mime or mime in invalid_mimetypes:
                     return False
 
