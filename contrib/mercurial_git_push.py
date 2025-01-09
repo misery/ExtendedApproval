@@ -139,6 +139,9 @@ if rbversion >= '5':
                                          match_mimetype,
                                          parse_mimetype)
 
+if rbversion >= '5.1':
+    from rbtools.commands.base.errors import NeedsReinitialize
+
 MAX_MERGE_ENTRIES = 30
 
 FAKE_DIFF_TEMPL = b'''diff --git /a /b
@@ -1224,6 +1227,9 @@ class MercurialGitHookCmd(BaseCommand):
 
     def __init__(self):
         super(MercurialGitHookCmd, self).__init__()
+        self.exec()
+
+    def exec(self):
         parser = self.create_arg_parser([])
         self.options = parser.parse_args([])
 
@@ -1671,7 +1677,15 @@ class BaseHook(object):
         cmd = MercurialGitHookCmd()
         try:
             if rbversion >= '3':
-                cmd.initialize()
+                if rbversion >= '5.1':
+                    try:
+                        cmd.initialize()
+                    except NeedsReinitialize:
+                        cmd.exec()
+                        cmd.initialize()
+                else:
+                    cmd.initialize()
+
                 self.root = cmd.api_root
                 global SERVER
                 SERVER = cmd.get_capabilities(self.root)
