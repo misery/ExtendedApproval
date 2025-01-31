@@ -1433,12 +1433,17 @@ class GitRevision(BaseRevision):
     """Class to represent information of changeset."""
 
     @staticmethod
-    def fetch_known_branches(rev):
-        output = execute(['git', 'branch', '--contains', rev])
-        branches = []
-        for branch in output.splitlines():
-            branches.append(branch.replace('*', '').strip())
-        return branches
+    def fetch_known_refs(rev):
+        output = execute(['git', 'for-each-ref', '--contains', rev])
+        refs = []
+        for line in output.splitlines():
+            values = line.split()
+            if values[1] in ('commit', 'tag') and (
+                'refs/heads/' in values[2] or
+                'refs/tags/' in values[2]
+            ):
+                refs.append(values[2])
+        return refs
 
     @staticmethod
     def fetch_raw(node, base, skipKnown=True):
@@ -1454,7 +1459,7 @@ class GitRevision(BaseRevision):
 
         if skipKnown:
             def isKnown(rev):
-                return len(GitRevision.fetch_known_branches(rev)) > 0
+                return len(GitRevision.fetch_known_refs(rev)) > 0
             changes[:] = [x for x in changes if not isKnown(x)]
         return changes
 
@@ -1545,7 +1550,7 @@ class GitRevision(BaseRevision):
         if self._has_dangling is None:
             self._has_dangling = (
                 self.isMerge() and
-                len(GitRevision.fetch_known_branches(self.parent(1))) == 0
+                len(GitRevision.fetch_known_refs(self.parent(1))) == 0
             )
         return self._has_dangling
 
