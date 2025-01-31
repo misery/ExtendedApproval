@@ -982,11 +982,17 @@ class BaseReviewRequest(object):
         links = 'submitter,update,latest_diff,draft,file_attachments'
 
         if self._topic is None:
+            node = (
+                self.nodes(False)
+                if os.environ.get('HOOK_UPDATE_COMMIT_ID')
+                else self.commit_id
+            )
+
             reqs = self.root.get_review_requests(repository=self.repo,
                                                  status='submitted',
                                                  only_fields=fields,
                                                  only_links=links,
-                                                 commit_id=self.nodes(False))
+                                                 commit_id=node)
             if len(reqs) > 0:
                 raise HookError('Changeset "%s" is already known '
                                 'in review request "%s"' %
@@ -1824,8 +1830,9 @@ class BaseHook(object):
             if self._is_multi_head_forbidden() and self._is_multi_head():
                 log.error('Multiple heads per branch are forbidden!')
             elif 'DEBUGFAIL' not in OPTIONS:
-                for r in revreqs:
-                    r.prepare_close()
+                if os.environ.get('HOOK_UPDATE_COMMIT_ID'):
+                    for r in revreqs:
+                        r.prepare_close()
 
                 for r in revreqs:
                     log.info('Closing review request: %s', r.id())
