@@ -1261,7 +1261,7 @@ class BaseRevision(object):
 
     def topic(self):
         if self._topic is None:
-            matches = re.findall(r'^topic:([a-z|A-Z|0-9|/| ]+)',
+            matches = re.findall(r'^topic:([a-z|A-Z|0-9|/|_| ]+)',
                                  self.desc(), re.MULTILINE)
             if len(matches) > 0:
                 self._topic = matches[-1].strip()
