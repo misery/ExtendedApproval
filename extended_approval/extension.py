@@ -497,7 +497,6 @@ class ExtendedApproval(Extension):
             entries[lineSplit[0]] = (lineSplit[1]
                                      if len(lineSplit) > 1
                                      else lineSplit[0])
-        global FORBIDDEN_APPROVE
         FORBIDDEN_APPROVE[configName] = entries
 
     def shutdown(self):
