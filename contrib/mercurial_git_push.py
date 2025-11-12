@@ -189,38 +189,20 @@ def hasCapability(*capability):
     return SERVER.has_capability(*capability)
 
 
-def get_ticket_refs(text, prefixes=None):
-    """Returns a list of ticket IDs referenced in given text.
-
-    Args:
-        prefixes (list of unicode):
-            Prefixes allowed before the ticket number.
-            For example, prefixes=['app-', ''] would recognize
-            both 'app-1' and '1' as ticket IDs.
-            By default, prefixes is a regex of '[A-Z-]*'
-
-    Returns:
-        set of unicode
-        The set of recognized issue numbers.
+def get_ticket_refs(text):
     """
-    verbs = ['closed', 'closes', 'close', 'fixed', 'fixes', 'fix',
-             'addresses', 're', 'references', 'refs', 'see',
-             'issue', 'bug', 'ticket']
-
-    trigger = '(?:' + '|'.join(verbs) + r')\s*(?:ticket|bug)?:*\s*'
-    ticket_join = r'\s*(?:,|and|, and)\s*'
-
-    if prefixes is None:
-        safe_prefixes = '[A-Z-]*'
-    else:
-        safe_prefixes = '|'.join([re.escape(prefix) for prefix in prefixes])
-
-    ticket_id = '#?((?:' + safe_prefixes + r')\d+)'
-    matches = re.findall(trigger + ticket_id +
-                         ('(?:' + ticket_join + ticket_id + ')?') * 10, text,
-                         flags=re.IGNORECASE)
-    ids = [submatch for match in matches for submatch in match if submatch]
-    return sorted(set(ids))
+    Process all lines like "issue: ...", "closes: ...".
+    Take everything up to the end of the line, split on commas,
+    trim whitespace, remove duplicates, and return the results sorted.
+    """
+    parts = []
+    lines = re.findall(r'(?im)^(?:issue|closes|fixes|see|bug|ticket):(.*)$',
+                       text)
+    if not lines:
+        return parts
+    for line in lines:
+        parts.extend([p.strip() for p in line.split(',') if p.strip()])
+    return sorted(set(parts))
 
 
 class BaseDiffer(object):
