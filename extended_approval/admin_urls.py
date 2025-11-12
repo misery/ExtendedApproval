@@ -6,7 +6,6 @@ from reviewboard.extensions.views import configure_extension
 from extended_approval.extension import ExtendedApproval
 from extended_approval.forms import ExtendedApprovalSettingsForm
 
-
 urlpatterns = [
     path(
         '',

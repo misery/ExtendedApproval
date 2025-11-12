@@ -119,8 +119,8 @@ import json
 import logging
 import os
 import re
-import six
 
+import six
 from rbtools import __version__ as rbversion
 from rbtools.api.resource import FileDiffResource
 from rbtools.clients.git import GitClient

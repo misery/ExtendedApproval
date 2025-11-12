@@ -1,4 +1,4 @@
-from django.forms import CharField, BooleanField, IntegerField, Textarea
+from django.forms import BooleanField, CharField, IntegerField, Textarea
 from djblets.extensions.forms import SettingsForm
 
 

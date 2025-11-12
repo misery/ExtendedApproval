@@ -12,30 +12,28 @@ except ImportError:
         return datetime.utcnow().replace(tzinfo=pytz.utc)
 
 
-from djblets.datagrid.grids import Column
-
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
-
+from djblets.datagrid.grids import Column
 from reviewboard.admin.read_only import is_site_read_only_for
+from reviewboard.datagrids.grids import ReviewRequestDataGrid
 from reviewboard.extensions.base import Extension
 from reviewboard.extensions.hooks import (
     ActionHook,
-    DataGridColumnsHook,
     DashboardColumnsHook,
+    DataGridColumnsHook,
     HideActionHook,
     ReviewRequestApprovalHook,
     SignalHook,
 )
-from reviewboard.datagrids.grids import ReviewRequestDataGrid
 from reviewboard.reviews.actions import BaseAction, ShipItAction
 from reviewboard.reviews.features import general_comments_feature
 from reviewboard.reviews.signals import (
     review_publishing,
     review_request_published,
 )
-from reviewboard.urls import reviewable_url_names, review_request_url_names
+from reviewboard.urls import review_request_url_names, reviewable_url_names
 
 all_review_request_url_names = reviewable_url_names + review_request_url_names
 
