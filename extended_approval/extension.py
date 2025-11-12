@@ -1,10 +1,16 @@
 from datetime import datetime, timedelta
+
 try:
     from datetime import UTC
-    def nowUtc(): return datetime.now(UTC)
+
+    def nowUtc():
+        return datetime.now(UTC)
 except ImportError:
     import pytz
-    def nowUtc(): return datetime.utcnow().replace(tzinfo=pytz.utc)
+
+    def nowUtc():
+        return datetime.utcnow().replace(tzinfo=pytz.utc)
+
 
 from djblets.datagrid.grids import Column
 
@@ -14,17 +20,21 @@ from django.utils.translation import gettext_lazy as _
 
 from reviewboard.admin.read_only import is_site_read_only_for
 from reviewboard.extensions.base import Extension
-from reviewboard.extensions.hooks import (ActionHook,
-                                          DataGridColumnsHook,
-                                          DashboardColumnsHook,
-                                          HideActionHook,
-                                          ReviewRequestApprovalHook,
-                                          SignalHook)
+from reviewboard.extensions.hooks import (
+    ActionHook,
+    DataGridColumnsHook,
+    DashboardColumnsHook,
+    HideActionHook,
+    ReviewRequestApprovalHook,
+    SignalHook,
+)
 from reviewboard.datagrids.grids import ReviewRequestDataGrid
-from reviewboard.reviews.actions import (BaseAction, ShipItAction)
+from reviewboard.reviews.actions import BaseAction, ShipItAction
 from reviewboard.reviews.features import general_comments_feature
-from reviewboard.reviews.signals import (review_publishing,
-                                         review_request_published)
+from reviewboard.reviews.signals import (
+    review_publishing,
+    review_request_published,
+)
 from reviewboard.urls import reviewable_url_names, review_request_url_names
 
 all_review_request_url_names = reviewable_url_names + review_request_url_names
@@ -57,8 +67,9 @@ class ReqReviews(object):
         self.latest = []
         self.self = []
         if self.diffset:
-            shipit_reviews = self.request.reviews.filter(public=True,
-                                                         ship_it=True)
+            shipit_reviews = self.request.reviews.filter(
+                public=True, ship_it=True
+            )
             for shipit in shipit_reviews:
                 if self.request.submitter == shipit.user:
                     self.self.append(shipit)
@@ -103,8 +114,9 @@ class ReqReviews(object):
         if self.revoked is None:
             self.revoked = []
             if self.diffset:
-                reviews = self.request.reviews.filter(public=True,
-                                                      ship_it=False)
+                reviews = self.request.reviews.filter(
+                    public=True, ship_it=False
+                )
                 for shipit in reviews:
                     if self.request.submitter != shipit.user:
                         e = shipit.extra_data
@@ -154,13 +166,17 @@ def check_grace_period(settings, diffset, shipit):
     now = nowUtc()
     epoch = calc_epoch(settings, CONFIG_GRACE_PERIOD_DIFFSET, diffset)
     if epoch > now:
-        return ('Grace period for latest diff is not reached: %s'
-                % epoch.strftime("%x %X %Z"))
+        return (
+            'Grace period for latest diff is not reached: %s'
+            % epoch.strftime('%x %X %Z')
+        )
 
     epoch = calc_epoch(settings, CONFIG_GRACE_PERIOD_SHIPIT, shipit)
     if epoch > now:
-        return ('Grace period for approved "Ship It!" is not reached: %s'
-                % epoch.strftime("%x %X %Z"))
+        return (
+            'Grace period for approved "Ship It!" is not reached: %s'
+            % epoch.strftime('%x %X %Z')
+        )
 
     return None
 
@@ -173,19 +189,22 @@ def shipit_user_forbidden(settings, user):
 
 def shipit_target_forbidden(settings, user, review_request):
     return settings.get(CONFIG_ENABLE_TARGET_SHIPITS) and (
-            not review_request.target_groups.filter(users__pk=user.pk).exists()
-            and not review_request.target_people.filter(pk=user.pk).exists()
-           )
+        not review_request.target_groups.filter(users__pk=user.pk).exists()
+        and not review_request.target_people.filter(pk=user.pk).exists()
+    )
 
 
 def shipit_forbidden(settings, user, review_request):
-    return user == review_request.owner or \
-           shipit_user_forbidden(settings, user) or \
-           shipit_target_forbidden(settings, user, review_request)
+    return (
+        user == review_request.owner
+        or shipit_user_forbidden(settings, user)
+        or shipit_target_forbidden(settings, user, review_request)
+    )
 
 
 class ApprovalColumn(Column):
     """Shows the approved state for a review request."""
+
     def __init__(self, extension, *args, **kwargs):
         """Initialize the column."""
         super(ApprovalColumn, self).__init__(
@@ -195,35 +214,53 @@ class ApprovalColumn(Column):
             db_field='shipit_count',
             sortable=False,
             shrink=True,
-            *args, **kwargs)
+            *args,
+            **kwargs,
+        )
 
         self.settings = extension.settings
 
     def _render(self, details):
-        return mark_safe(''.join(
+        return mark_safe(
+            ''.join(
                 format_html(
                     '<div class="rb-icon rb-icon-{icon_name}"'
                     '      title="{title}" style="{style}"></div>',
-                    **dict({'style': '', }, **detail))
+                    **dict(
+                        {
+                            'style': '',
+                        },
+                        **detail,
+                    ),
+                )
                 for detail in details
-            ))
+            )
+        )
 
     def render_data(self, state, review_request):
         prefixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_PREFIXES]
         for key, value in prefixes.items():
             if review_request.summary.startswith(key):
-                return self._render([{
-                        'icon_name': 'issue-dropped',
-                        'title': _(value),
-                }])
+                return self._render(
+                    [
+                        {
+                            'icon_name': 'issue-dropped',
+                            'title': _(value),
+                        }
+                    ]
+                )
 
         suffixes = FORBIDDEN_APPROVE[CONFIG_FORBIDDEN_APPROVE_SUFFIXES]
         for key, value in suffixes.items():
             if review_request.summary.endswith(key):
-                return self._render([{
-                        'icon_name': 'issue-dropped',
-                        'title': _(value),
-                }])
+                return self._render(
+                    [
+                        {
+                            'icon_name': 'issue-dropped',
+                            'title': _(value),
+                        }
+                    ]
+                )
 
         r = ReqReviews(review_request)
 
@@ -231,57 +268,87 @@ class ApprovalColumn(Column):
         if info is None:
             info, commit = r.checkForbiddenSuffix()
         if info is not None:
-            return self._render([{
-                    'icon_name': 'issue-dropped',
-                    'title': _(info),
-            }])
+            return self._render(
+                [
+                    {
+                        'icon_name': 'issue-dropped',
+                        'title': _(info),
+                    }
+                ]
+            )
 
         if len(r.getTotal()) > 0 or len(r.getRevoked()) > 0:
             if len(r.getLatest()) > 0:
-                period = check_grace_period(self.settings, r.getDiffset(),
-                                            r.getLatest()[0])
+                period = check_grace_period(
+                    self.settings, r.getDiffset(), r.getLatest()[0]
+                )
 
                 if period is not None:
-                    return self._render([{
-                              'icon_name': 'admin-disabled',
-                              'title': period,
-                       }])
+                    return self._render(
+                        [
+                            {
+                                'icon_name': 'admin-disabled',
+                                'title': period,
+                            }
+                        ]
+                    )
 
                 elif review_request.approved:
-                    return self._render([{
-                              'icon_name': 'admin-enabled',
-                              'title': _('Approved'),
-                       }])
+                    return self._render(
+                        [
+                            {
+                                'icon_name': 'admin-enabled',
+                                'title': _('Approved'),
+                            }
+                        ]
+                    )
 
-                elif (review_request.issue_open_count > 0 or
-                      review_request.issue_verifying_count > 0):
-                    return self._render([{
-                              'icon_name': 'admin-enabled',
-                              'title': _('Approved but has issues'),
-                              'style': 'filter: sepia(1)'
-                       }])
+                elif (
+                    review_request.issue_open_count > 0
+                    or review_request.issue_verifying_count > 0
+                ):
+                    return self._render(
+                        [
+                            {
+                                'icon_name': 'admin-enabled',
+                                'title': _('Approved but has issues'),
+                                'style': 'filter: sepia(1)',
+                            }
+                        ]
+                    )
 
             else:
-                return self._render([{
-                          'icon_name': 'issue-verifying',
-                          'title': _('Latest diff not marked "Ship It!"'),
-                   }])
+                return self._render(
+                    [
+                        {
+                            'icon_name': 'issue-verifying',
+                            'title': _('Latest diff not marked "Ship It!"'),
+                        }
+                    ]
+                )
 
-        return self._render([{
-                      'icon_name': 'issue-open',
-                      'title': _('Not approved'),
-               }])
+        return self._render(
+            [
+                {
+                    'icon_name': 'issue-open',
+                    'title': _('Not approved'),
+                }
+            ]
+        )
 
 
 class ConfigurableApprovalHook(ReviewRequestApprovalHook):
     def __init__(self, extension, *args, **kwargs):
         super(ConfigurableApprovalHook, self).__init__(
-            extension, *args, **kwargs)
+            extension, *args, **kwargs
+        )
         self.settings = extension.settings
 
     def is_approved(self, review_request, prev_approved, prev_failure):
-        if (review_request.issue_open_count > 0 or
-           review_request.issue_verifying_count > 0):
+        if (
+            review_request.issue_open_count > 0
+            or review_request.issue_verifying_count > 0
+        ):
             return False, 'The review request has open issues'
 
         markedTempl = 'The review request is marked as "%s"'
@@ -308,11 +375,15 @@ class ConfigurableApprovalHook(ReviewRequestApprovalHook):
             return False, markedTempl % (info, commit.commit_id)
 
         if len(r.getLatest()) == 0:
-            return False, 'The latest diff has not been marked' \
-                          ' "Ship It!" by someone else'
+            return (
+                False,
+                'The latest diff has not been marked'
+                ' "Ship It!" by someone else',
+            )
 
-        period = check_grace_period(self.settings, r.getDiffset(),
-                                    r.getLatest()[0])
+        period = check_grace_period(
+            self.settings, r.getDiffset(), r.getLatest()[0]
+        )
         if period is not None:
             return False, period
 
@@ -327,18 +398,19 @@ class AdvancedShipItAction(ShipItAction):
         self.settings = settings
 
     def should_render(self, context):
-        return (super().should_render(context=context) and
-                not shipit_forbidden(self.settings,
-                                     context['request'].user,
-                                     context['review_request']))
+        return super().should_render(context=context) and not shipit_forbidden(
+            self.settings, context['request'].user, context['review_request']
+        )
 
 
 class AdvancedPingItAction(ShipItAction):
     action_id = 'advanced-ping-it'
     label = _('Ping It!')
     description = [
-        _("You're happy with what you're seeing, and would like to "
-          'request a ShipIt.'),
+        _(
+            "You're happy with what you're seeing, and would like to "
+            'request a ShipIt.'
+        ),
     ]
 
     def __init__(self, settings):
@@ -346,10 +418,9 @@ class AdvancedPingItAction(ShipItAction):
         self.settings = settings
 
     def should_render(self, context):
-        return (super().should_render(context=context) and
-                shipit_forbidden(self.settings,
-                                 context['request'].user,
-                                 context['review_request']))
+        return super().should_render(context=context) and shipit_forbidden(
+            self.settings, context['request'].user, context['review_request']
+        )
 
 
 class AdvancedLegacyEditReviewAction(BaseAction):
@@ -365,10 +436,12 @@ class AdvancedLegacyEditReviewAction(BaseAction):
     def should_render(self, context):
         request = context['request']
         user = request.user
-        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
-                super().should_render(context=context) and
-                user.is_authenticated and
-                not is_site_read_only_for(user))
+        return (
+            self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS)
+            and super().should_render(context=context)
+            and user.is_authenticated
+            and not is_site_read_only_for(user)
+        )
 
 
 class AdvancedLegacyAddGeneralCommentAction(BaseAction):
@@ -384,11 +457,13 @@ class AdvancedLegacyAddGeneralCommentAction(BaseAction):
     def should_render(self, context):
         request = context['request']
         user = request.user
-        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
-                super().should_render(context=context) and
-                user.is_authenticated and
-                not is_site_read_only_for(user) and
-                general_comments_feature.is_enabled(request=request))
+        return (
+            self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS)
+            and super().should_render(context=context)
+            and user.is_authenticated
+            and not is_site_read_only_for(user)
+            and general_comments_feature.is_enabled(request=request)
+        )
 
 
 class AdvancedLegacyShipItAction(BaseAction):
@@ -412,10 +487,12 @@ class AdvancedLegacyShipItAction(BaseAction):
     def should_render(self, context):
         request = context['request']
         user = request.user
-        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
-                super().should_render(context=context) and
-                user.is_authenticated and
-                not is_site_read_only_for(user))
+        return (
+            self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS)
+            and super().should_render(context=context)
+            and user.is_authenticated
+            and not is_site_read_only_for(user)
+        )
 
 
 class AdvancedLegacyWaitItAction(BaseAction):
@@ -431,14 +508,16 @@ class AdvancedLegacyWaitItAction(BaseAction):
     def should_render(self, context):
         request = context['request']
         user = request.user
-        return (self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS) and
-                self.settings.get(CONFIG_ENABLE_WAIT_IT_BUTTON) and
-                super().should_render(context=context) and
-                user.is_authenticated and
-                not is_site_read_only_for(user) and
-                not shipit_forbidden(self.settings,
-                                     user,
-                                     context['review_request']))
+        return (
+            self.settings.get(CONFIG_ENABLE_LEGACY_BUTTONS)
+            and self.settings.get(CONFIG_ENABLE_WAIT_IT_BUTTON)
+            and super().should_render(context=context)
+            and user.is_authenticated
+            and not is_site_read_only_for(user)
+            and not shipit_forbidden(
+                self.settings, user, context['review_request']
+            )
+        )
 
 
 class ExtendedApproval(Extension):
@@ -446,13 +525,11 @@ class ExtendedApproval(Extension):
         'Name': 'Extended Approval',
         'Summary': 'Set approval state and show it as dashboard column',
         'Author': 'Andre Klitzing',
-        'Author-email': 'aklitzing@gmail.com'
+        'Author-email': 'aklitzing@gmail.com',
     }
     js_bundles = {
         'default': {
-            'source_filenames': (
-                'js/extension.ts',
-            ),
+            'source_filenames': ('js/extension.ts',),
         }
     }
 
@@ -478,14 +555,17 @@ class ExtendedApproval(Extension):
         SignalHook(self, review_request_published, self.on_published)
         SignalHook(self, review_publishing, self.on_review_publishing)
         HideActionHook(self, action_ids=['ship-it'])
-        ActionHook(self, actions=[
-            AdvancedShipItAction(self.settings),
-            AdvancedPingItAction(self.settings),
-            AdvancedLegacyEditReviewAction(self.settings),
-            AdvancedLegacyAddGeneralCommentAction(self.settings),
-            AdvancedLegacyWaitItAction(self.settings),
-            AdvancedLegacyShipItAction(self.settings),
-        ])
+        ActionHook(
+            self,
+            actions=[
+                AdvancedShipItAction(self.settings),
+                AdvancedPingItAction(self.settings),
+                AdvancedLegacyEditReviewAction(self.settings),
+                AdvancedLegacyAddGeneralCommentAction(self.settings),
+                AdvancedLegacyWaitItAction(self.settings),
+                AdvancedLegacyShipItAction(self.settings),
+            ],
+        )
 
         self._init_dict(CONFIG_FORBIDDEN_APPROVE_PREFIXES)
         self._init_dict(CONFIG_FORBIDDEN_APPROVE_SUFFIXES)
@@ -494,9 +574,9 @@ class ExtendedApproval(Extension):
         entries = {}
         for entry in self.settings.get(configName).splitlines():
             lineSplit = entry.split('|', 1)
-            entries[lineSplit[0]] = (lineSplit[1]
-                                     if len(lineSplit) > 1
-                                     else lineSplit[0])
+            entries[lineSplit[0]] = (
+                lineSplit[1] if len(lineSplit) > 1 else lineSplit[0]
+            )
         FORBIDDEN_APPROVE[configName] = entries
 
     def shutdown(self):
@@ -517,9 +597,9 @@ class ExtendedApproval(Extension):
                     self._revoke_shipits(r.getTotal(), review_request)
 
     def on_review_publishing(self, user=None, review=None, **kwargs):
-        if review.ship_it and shipit_forbidden(self.settings,
-                                               review.user,
-                                               review.review_request):
+        if review.ship_it and shipit_forbidden(
+            self.settings, review.user, review.review_request
+        ):
             review.ship_it = False
             if review.body_top == review.SHIP_IT_TEXT:
                 review.body_top = 'PING! Could someone review and give ShipIt?'

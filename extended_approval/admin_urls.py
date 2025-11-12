@@ -8,10 +8,13 @@ from extended_approval.forms import ExtendedApprovalSettingsForm
 
 
 urlpatterns = [
-    path('',
-         configure_extension,
-         {
+    path(
+        '',
+        configure_extension,
+        {
             'ext_class': ExtendedApproval,
             'form_class': ExtendedApprovalSettingsForm,
-         }, name='extended_approval-configure'),
+        },
+        name='extended_approval-configure',
+    ),
 ]

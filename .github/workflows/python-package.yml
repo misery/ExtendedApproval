@@ -25,14 +25,14 @@ jobs:
       run: |
         python -m pip install --upgrade pip setuptools
         python -m pip list
-        python -m pip install flake8 pytest wheel build
+        python -m pip install flake8 pytest wheel build ruff
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
-        # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --show-source --statistics
-        # exit-zero treats all errors as warnings.
         flake8 . --count --exit-zero --statistics
+        ruff check
+        ruff format --exit-non-zero-on-format
     - name: Installation
       run: |
         python -m build --wheel --no-isolation

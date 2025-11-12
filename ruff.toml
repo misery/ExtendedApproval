@@ -1,0 +1,16 @@
+exclude = [
+    ".git",
+    ".git-rewrite",
+    ".ruff_cache",
+]
+
+line-length = 79
+indent-width = 4
+
+[lint]
+
+[format]
+quote-style = "single"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
