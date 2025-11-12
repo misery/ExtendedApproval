@@ -2223,7 +2223,7 @@ def set_options():
         HG_ENV_PREFIX = 'HG_USERVAR_'
         for key, value in six.iteritems(os.environ):
             if key.startswith(HG_ENV_PREFIX):
-                OPTIONS[key[len(HG_ENV_PREFIX) :]] = value
+                OPTIONS[key[len(HG_ENV_PREFIX):]] = value  # fmt: skip
 
 
 def set_topic_usage():

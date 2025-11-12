@@ -1,6 +1,5 @@
 from reviewboard.extensions.packaging import setup
 
-
 PACKAGE = 'rbExtendedApproval'
 VERSION = '1.2.7'
 
@@ -16,8 +15,9 @@ setup(
         'reviewboard>=6',
     ],
     entry_points={
-        'reviewboard.extensions': '%s = extended_approval.extension:ExtendedApproval'
-        % PACKAGE,
+        'reviewboard.extensions': (
+            '%s = extended_approval.extension:ExtendedApproval' % PACKAGE
+        ),
     },
     classifiers=[
         'Development Status :: 5 - Production/Stable',
