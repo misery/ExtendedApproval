@@ -8,6 +8,9 @@ line-length = 79
 indent-width = 4
 
 [lint]
+select = [
+    "I",
+]
 
 [format]
 quote-style = "single"
