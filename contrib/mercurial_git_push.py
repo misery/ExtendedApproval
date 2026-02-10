@@ -342,6 +342,7 @@ class MercurialDiffer(BaseDiffer):
 class GitDiffer(BaseDiffer):
     def __init__(self, root, cmd):
         tool = GitClient()
+        tool.setup()
         tool.get_repository_info()
         super(GitDiffer, self).__init__(tool)
 
