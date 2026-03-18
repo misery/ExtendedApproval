@@ -774,7 +774,7 @@ class BaseReviewRequest(object):
         for changeset in self._changesets:
             change_d = self.diff_info_commits[changeset.node()]
             v = validator.validate_commit(
-                repository=self.repo,
+                repository=str(self.repo),
                 diff=change_d.getDiff(),
                 commit_id=changeset.node(),
                 parent_id=changeset.parent(),
